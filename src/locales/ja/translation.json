@@ -1,0 +1,69 @@
+{
+  "app": {
+    "title": "Filo",
+    "statusBar": "{{total}}件のルールセット ({{enabled}}件有効)"
+  },
+  "toolbar": {
+    "create": "新規作成",
+    "executeAll": "一括実行",
+    "import": "インポート",
+    "export": "エクスポート"
+  },
+  "ruleset": {
+    "move": "移動",
+    "copy": "コピー",
+    "enabled": "有効",
+    "disabled": "無効",
+    "execute": "実行",
+    "edit": "編集",
+    "delete": "削除",
+    "deleteConfirm": "ルールセット「{{name}}」を削除しますか？"
+  },
+  "editor": {
+    "title": "ルールセット編集",
+    "titleCreate": "ルールセット作成",
+    "name": "名前",
+    "sourceDir": "移動元",
+    "destinationDir": "移動先",
+    "action": "アクション",
+    "overwrite": "同名ファイルを上書きする",
+    "filters": "フィルタ条件",
+    "extensions": "拡張子",
+    "extensionAdd": "追加",
+    "filename": "ファイル名パターン",
+    "matchType": "方式",
+    "matchTypeGlob": "glob",
+    "matchTypeRegex": "正規表現",
+    "pattern": "パターン",
+    "createdAt": "作成日時",
+    "modifiedAt": "更新日時",
+    "dateStart": "開始",
+    "dateEnd": "終了",
+    "save": "保存",
+    "cancel": "キャンセル",
+    "validation": {
+      "nameRequired": "名前を入力してください",
+      "sourceDirRequired": "移動元フォルダを指定してください",
+      "destinationDirRequired": "移動先フォルダを指定してください",
+      "filterRequired": "フィルタ条件を1つ以上指定してください"
+    }
+  },
+  "result": {
+    "title": "実行結果",
+    "action": "アクション",
+    "status": "ステータス",
+    "statusCompleted": "完了",
+    "statusPartialFailure": "一部失敗",
+    "statusFailed": "失敗",
+    "succeeded": "成功",
+    "skipped": "スキップ",
+    "errors": "エラー",
+    "items": "{{count}}件",
+    "undoAll": "すべて元に戻す",
+    "undoFile": "戻す",
+    "undone": "元に戻しました",
+    "close": "閉じる",
+    "skipReason": "同名ファイルが移動先に存在",
+    "undoError": "元に戻す操作に失敗しました"
+  }
+}

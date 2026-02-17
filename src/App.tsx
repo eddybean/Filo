@@ -1,0 +1,168 @@
+import { useEffect, useState, useCallback } from "react";
+import { useTranslation } from "react-i18next";
+import { open, save } from "@tauri-apps/plugin-dialog";
+import { Toolbar } from "./components/Toolbar";
+import { RulesetList } from "./components/RulesetList";
+import { RulesetEditDialog } from "./components/RulesetEditDialog";
+import { ExecutionResultDialog } from "./components/ExecutionResultDialog";
+import { useRulesetStore } from "./store/rulesetStore";
+import type { Ruleset, ExecutionResult } from "./lib/types";
+import * as commands from "./lib/commands";
+
+function App() {
+  const { t } = useTranslation();
+  const {
+    rulesets,
+    fetchRulesets,
+    saveRuleset,
+    deleteRuleset,
+    reorderRulesets,
+    executeRuleset,
+    executeAll,
+  } = useRulesetStore();
+
+  const [editingRuleset, setEditingRuleset] = useState<Ruleset | null | undefined>(
+    undefined, // undefined = closed, null = new, Ruleset = editing
+  );
+  const [executionResults, setExecutionResults] = useState<ExecutionResult[] | null>(null);
+  const [executing, setExecuting] = useState(false);
+
+  useEffect(() => {
+    fetchRulesets();
+  }, [fetchRulesets]);
+
+  const handleToggleEnabled = useCallback(
+    async (id: string, enabled: boolean) => {
+      const rs = rulesets.find((r) => r.id === id);
+      if (rs) {
+        await saveRuleset({ ...rs, enabled });
+      }
+    },
+    [rulesets, saveRuleset],
+  );
+
+  const handleExecute = useCallback(
+    async (id: string) => {
+      setExecuting(true);
+      try {
+        const result = await executeRuleset(id);
+        setExecutionResults([result]);
+      } finally {
+        setExecuting(false);
+      }
+    },
+    [executeRuleset],
+  );
+
+  const handleExecuteAll = useCallback(async () => {
+    setExecuting(true);
+    try {
+      const results = await executeAll();
+      if (results.length > 0) {
+        setExecutionResults(results);
+      }
+    } finally {
+      setExecuting(false);
+    }
+  }, [executeAll]);
+
+  const handleDelete = useCallback(
+    async (id: string) => {
+      const rs = rulesets.find((r) => r.id === id);
+      const message = t("ruleset.deleteConfirm", { name: rs?.name ?? id });
+      if (window.confirm(message)) {
+        await deleteRuleset(id);
+      }
+    },
+    [rulesets, deleteRuleset, t],
+  );
+
+  const handleSaveRuleset = useCallback(
+    async (ruleset: Ruleset) => {
+      await saveRuleset(ruleset);
+      setEditingRuleset(undefined);
+    },
+    [saveRuleset],
+  );
+
+  const handleSelectFolder = useCallback(async (): Promise<string | null> => {
+    const selected = await open({ directory: true });
+    return selected ?? null;
+  }, []);
+
+  const handleImport = useCallback(async () => {
+    const path = await open({
+      filters: [{ name: "YAML", extensions: ["yaml", "yml"] }],
+    });
+    if (path) {
+      const imported = await commands.importRulesets(path);
+      for (const rs of imported) {
+        await saveRuleset(rs);
+      }
+    }
+  }, [saveRuleset]);
+
+  const handleExport = useCallback(async () => {
+    const path = await save({
+      defaultPath: "filo-rules.yaml",
+      filters: [{ name: "YAML", extensions: ["yaml", "yml"] }],
+    });
+    if (path) {
+      await commands.exportRulesets(path);
+    }
+  }, []);
+
+  const enabledCount = rulesets.filter((r) => r.enabled).length;
+
+  return (
+    <main className="flex flex-col h-screen bg-gray-50">
+      <Toolbar
+        onCreateNew={() => setEditingRuleset(null)}
+        onExecuteAll={handleExecuteAll}
+        onImport={handleImport}
+        onExport={handleExport}
+        executing={executing}
+      />
+
+      <div className="flex-1 overflow-y-auto">
+        {rulesets.length === 0 ? (
+          <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+            {t("toolbar.create")}
+          </div>
+        ) : (
+          <RulesetList
+            rulesets={rulesets}
+            onToggleEnabled={handleToggleEnabled}
+            onExecute={handleExecute}
+            onEdit={(rs) => setEditingRuleset(rs)}
+            onDelete={handleDelete}
+            onReorder={reorderRulesets}
+            executing={executing}
+          />
+        )}
+      </div>
+
+      <div className="px-3 py-2 border-t bg-white text-xs text-gray-500">
+        {t("app.statusBar", { total: rulesets.length, enabled: enabledCount })}
+      </div>
+
+      {editingRuleset !== undefined && (
+        <RulesetEditDialog
+          ruleset={editingRuleset}
+          onSave={handleSaveRuleset}
+          onCancel={() => setEditingRuleset(undefined)}
+          onSelectFolder={handleSelectFolder}
+        />
+      )}
+
+      {executionResults && (
+        <ExecutionResultDialog
+          results={executionResults}
+          onClose={() => setExecutionResults(null)}
+        />
+      )}
+    </main>
+  );
+}
+
+export default App;

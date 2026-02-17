@@ -1,0 +1,470 @@
+# Filo - ソフトウェア仕様書
+
+## 1. 概要
+
+**Filo** は、ユーザが定義したルールセットに基づいてファイルを移動またはコピーするWindows 11向けGUIアプリケーションである。
+
+### 1.1 用語定義
+
+| 用語 | 定義 |
+|------|------|
+| ルールセット | ファイル操作の条件を定義した一つのまとまり。移動元・フィルタ条件・移動先・オプションで構成される |
+| フィルタ | ルールセット内で対象ファイルを絞り込むための条件。複数指定時はAND結合 |
+| 一括実行 | 有効な全ルールセットを上から順に実行すること |
+| アクション | ファイルに対する操作種別。「移動」または「コピー」 |
+
+### 1.2 技術スタック
+
+| レイヤー | 技術 |
+|----------|------|
+| フロントエンド | React 19 + TypeScript |
+| バックエンド | Rust (Tauri v2) |
+| UIライブラリ | 未定（shadcn/ui, Radix UI 等を検討） |
+| スタイリング | Tailwind CSS |
+| 状態管理 | Zustand |
+| 国際化 (i18n) | react-i18next |
+| ルールセット保存形式 | YAML |
+| ビルドツール | Vite |
+| テスト (Frontend) | Vitest + React Testing Library |
+| テスト (Backend) | Rust 標準テストフレームワーク |
+
+---
+
+## 2. ルールセット仕様
+
+### 2.1 ルールセットの構造
+
+```yaml
+# filo-rules.yaml
+version: 1
+rulesets:
+  - id: "550e8400-e29b-41d4-a716-446655440000"
+    name: "画像ファイルを整理"
+    enabled: true
+    source_dir: "C:/Users/user/Downloads"
+    destination_dir: "C:/Users/user/Pictures/sorted"
+    action: "move"       # "move" | "copy"
+    overwrite: false
+    filters:
+      extensions:
+        - ".jpg"
+        - ".png"
+        - ".gif"
+      filename:
+        pattern: "screenshot_*"
+        match_type: "glob"  # "glob" | "regex"
+      created_at:
+        start: "2025-01-01T00:00:00"
+        end: null
+      modified_at:
+        start: null
+        end: "2025-12-31T23:59:59"
+```
+
+### 2.2 各フィールド定義
+
+#### 基本フィールド
+
+| フィールド | 型 | 必須 | 説明 |
+|-----------|-----|------|------|
+| `id` | string | Yes | ルールセットの一意識別子（UUID v4）。新規作成時に自動生成。YAMLにも永続化する |
+| `name` | string | Yes | ルールセットの表示名 |
+| `enabled` | bool | Yes | 有効/無効フラグ |
+| `source_dir` | string | Yes | 移動元フォルダのパス |
+| `destination_dir` | string | Yes | 移動先フォルダのパス |
+| `action` | `"move"` \| `"copy"` | Yes | ファイル操作種別。デフォルト: `"move"` |
+| `overwrite` | bool | Yes | 移動先に同名ファイルが存在する場合に上書きするか |
+
+#### 並び順について
+
+- ルールセットの並び順はYAML配列内のインデックス順で決定する
+- 専用の `order` フィールドは持たない。UIでの並び替えはYAML配列の順序変更として保存される
+
+#### フィルタフィールド（`filters` 内、すべてオプション。1つ以上の指定が必要）
+
+| フィールド | 型 | 説明 |
+|-----------|-----|------|
+| `extensions` | string[] | 対象とするファイル拡張子のリスト（`.` 付き、大文字小文字を区別しない） |
+| `filename.pattern` | string | ファイル名のマッチングパターン |
+| `filename.match_type` | `"glob"` \| `"regex"` | パターンのマッチング方式。`glob` は `*` `?` によるワイルドカード。 `regex` は正規表現 |
+| `created_at.start` | datetime? | ファイル作成日時の下限（この日時以降） |
+| `created_at.end` | datetime? | ファイル作成日時の上限（この日時以前） |
+| `modified_at.start` | datetime? | ファイル更新日時の下限 |
+| `modified_at.end` | datetime? | ファイル更新日時の上限 |
+
+#### フィルタ結合ロジック
+
+- 複数のフィルタを指定した場合、すべての条件を満たすファイルのみが対象（AND結合）
+- `extensions` は内部でOR結合（いずれかの拡張子に一致すればOK）
+- 日時フィルタは `start` のみ、`end` のみ、両方指定のいずれも可
+
+### 2.3 YAMLファイルの保存場所
+
+- デフォルト: アプリケーションデータディレクトリ（`%APPDATA%/filo/rulesets/`）
+- ユーザがYAMLファイルのパスを指定してインポート/エクスポート可能
+
+---
+
+## 3. 画面仕様
+
+### 3.1 メイン画面
+
+メイン画面はルールセットの一覧管理と実行制御を担う。
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Filo                                      [─][□][×] │
+├─────────────────────────────────────────────────────┤
+│  ツールバー: [+ 新規作成] [▶ 一括実行] [インポート] [エクスポート] │
+├─────────────────────────────────────────────────────┤
+│                                                       │
+│  ☑ 1. 画像ファイルを整理        移動  [▶][✎][🗑]     │
+│     Downloads → Pictures/sorted                       │
+│     .jpg, .png, .gif | glob: screenshot_*             │
+│                                                       │
+│  ☐ 2. ログファイルをアーカイブ   コピー [▶][✎][🗑]     │
+│     C:/logs → D:/archive/logs                         │
+│     .log | 更新日: ~2024-12-31                         │
+│                                                       │
+│  ☑ 3. ドキュメント整理          移動  [▶][✎][🗑]     │
+│     Desktop → Documents/organized                     │
+│     .pdf, .docx                                       │
+│                                                       │
+├─────────────────────────────────────────────────────┤
+│  ステータスバー: 3件のルールセット (2件有効)              │
+└─────────────────────────────────────────────────────┘
+```
+
+#### メイン画面の機能
+
+| 機能 | 説明 |
+|------|------|
+| ルールセット一覧表示 | 各ルールセットを名前・アクション種別・概要付きでリスト表示 |
+| 有効/無効の切替 | チェックボックスで個別に切替。無効なルールセットは一括実行時にスキップ |
+| 並び替え | ドラッグ&ドロップで順序変更。一括実行時の実行順序に直結 |
+| 個別実行 | 各ルールセットの「実行」ボタンで単体実行 |
+| 一括実行 | 有効な全ルールセットを上から順番に実行 |
+| 新規作成 | ルールセット編集ダイアログを開く |
+| 編集 | 既存ルールセットの編集ダイアログを開く |
+| 削除 | 確認ダイアログの後、ルールセットを削除 |
+| インポート | 外部YAMLファイルからルールセットを読み込む |
+| エクスポート | 現在のルールセットをYAMLファイルとして保存 |
+
+### 3.2 ルールセット編集ダイアログ
+
+ルールセットの作成・編集を行うモーダルダイアログ。
+
+```
+┌───────────────────────────────────────────┐
+│  ルールセット編集                           │
+├───────────────────────────────────────────┤
+│                                             │
+│  名前:  [画像ファイルを整理            ]    │
+│                                             │
+│  移動元: [C:/Users/user/Downloads   ][📁]  │
+│  移動先: [C:/Users/user/Pictures    ][📁]  │
+│                                             │
+│  アクション: (●) 移動  (○) コピー            │
+│  ☐ 同名ファイルを上書きする                  │
+│                                             │
+│  ─── フィルタ条件 ───────────────────────    │
+│                                             │
+│  拡張子: [.jpg] [.png] [.gif] [+ 追加]      │
+│                                             │
+│  ファイル名パターン:                         │
+│    方式: (●) glob  (○) 正規表現              │
+│    パターン: [screenshot_*              ]    │
+│                                             │
+│  作成日時:                                   │
+│    開始: [                ] 終了: [        ] │
+│                                             │
+│  更新日時:                                   │
+│    開始: [                ] 終了: [        ] │
+│                                             │
+│               [キャンセル] [保存]             │
+└───────────────────────────────────────────┘
+```
+
+#### 編集ダイアログの機能
+
+| 機能 | 説明 |
+|------|------|
+| フォルダ選択 | 📁 ボタンでOS標準のフォルダ選択ダイアログを呼び出す |
+| アクション選択 | 「移動」と「コピー」をラジオボタンで切替 |
+| 拡張子入力 | タグ形式で複数追加・削除が可能 |
+| ファイル名パターン | glob または正規表現を選択してパターンを入力 |
+| 日時入力 | カレンダーピッカーまたは手動入力 |
+| バリデーション | 保存時に必須フィールドとフィルタ条件（1つ以上）を検証 |
+
+### 3.3 実行結果ダイアログ
+
+ルールセット実行後に結果を表示する。移動済みファイルのUndo機能を提供する。
+
+```
+┌─────────────────────────────────────────────────┐
+│  実行結果                                         │
+├─────────────────────────────────────────────────┤
+│                                                   │
+│  ルールセット: 画像ファイルを整理                    │
+│  アクション: 移動 | ステータス: 完了                 │
+│                                                   │
+│  ✓ 成功: 15件  ⚠ スキップ: 2件  ✗ エラー: 1件     │
+│                                                   │
+│  [すべて元に戻す]                                  │
+│                                                   │
+│  ─── 詳細 ─────────────────────────────────────  │
+│                                                   │
+│  ✓ screenshot_001.png                     [↩ 戻す] │
+│    Downloads/ → Pictures/sorted/                   │
+│                                                   │
+│  ✓ screenshot_002.png                     [↩ 戻す] │
+│    Downloads/ → Pictures/sorted/                   │
+│                                                   │
+│  ⚠ photo.jpg                                      │
+│    スキップ: 同名ファイルが移動先に存在               │
+│                                                   │
+│  ✗ locked.png                                     │
+│    エラー: アクセスが拒否されました                   │
+│                                                   │
+│                                          [閉じる]  │
+└─────────────────────────────────────────────────┘
+```
+
+#### 実行結果の情報
+
+| 項目 | 説明 |
+|------|------|
+| サマリー | 成功・スキップ・エラーの件数を色分けアイコン付きで表示 |
+| 詳細リスト | 各ファイルごとの結果。ステータスに応じてアイコンと色を変える |
+| 成功（✓ 緑） | 正常に移動/コピーできたファイル。移動元→移動先のパスを表示 |
+| スキップ（⚠ 黄） | 上書き無効時に同名ファイルが存在してスキップしたファイル。理由を表示 |
+| エラー（✗ 赤） | アクセス権限不足等で失敗したファイル。エラー理由を表示 |
+
+#### Undo（元に戻す）機能
+
+| 機能 | 説明 |
+|------|------|
+| 個別Undo | 成功した各ファイルの「戻す」ボタンで、そのファイルを元の場所に戻す |
+| 一括Undo | 「すべて元に戻す」ボタンで、成功した全ファイルを一括で元に戻す |
+| 対象 | アクションが「移動」の場合のみ有効。「コピー」の場合はUndoボタンを非表示 |
+| Undo後の表示 | Undo成功時はステータスを「↩ 元に戻しました」に更新。失敗時はエラー表示 |
+| 有効期間 | 実行結果ダイアログが開いている間のみ有効。ダイアログを閉じるとUndo不可 |
+
+---
+
+## 4. バックエンド仕様
+
+### 4.1 コア機能（Rust側）
+
+#### ルールセット管理
+
+- YAMLファイルの読み込み・書き込み（serde + serde_yaml）
+- ルールセットのバリデーション
+- ルールセットの並び順管理（YAML配列の順序）
+
+#### ファイル操作エンジン
+
+```
+[ルールセット実行フロー]
+
+1. source_dir の存在確認
+2. destination_dir の存在確認（存在しない場合は作成）
+3. source_dir 内のファイル一覧取得（サブフォルダは対象外、直下のみ）
+4. 各ファイルに対してフィルタ条件を適用
+   4a. extensions フィルタ
+   4b. filename フィルタ（glob or regex）
+   4c. created_at フィルタ
+   4d. modified_at フィルタ
+   4e. すべてのフィルタがtrueの場合のみ対象
+5. 対象ファイルを destination_dir へ移動またはコピー
+   5a. overwrite=false かつ同名ファイル存在 → スキップ
+   5b. overwrite=true かつ同名ファイル存在 → 上書き
+   5c. 操作失敗 → エラー記録して続行
+6. 実行結果を返却
+```
+
+#### Undo処理フロー
+
+```
+[Undo フロー（移動の場合のみ）]
+
+1. 対象ファイルが移動先に存在するか確認
+2. 元のパス（source_dir）にファイルを移動
+   2a. 元のパスに同名ファイルが存在する場合 → エラー（上書きしない）
+   2b. 移動失敗 → エラーを返却
+3. Undo結果を返却
+```
+
+### 4.2 Tauri コマンド（IPC）
+
+フロントエンドとバックエンド間のインターフェース。
+
+| コマンド | 引数 | 戻り値 | 説明 |
+|---------|------|--------|------|
+| `get_rulesets` | なし | `Ruleset[]` | 全ルールセットを取得 |
+| `save_ruleset` | `Ruleset` | `Result<()>` | ルールセットを保存（新規/更新） |
+| `delete_ruleset` | `id: string` | `Result<()>` | ルールセットを削除 |
+| `reorder_rulesets` | `ids: string[]` | `Result<()>` | 並び順を更新 |
+| `execute_ruleset` | `id: string` | `ExecutionResult` | 単一ルールセット実行 |
+| `execute_all` | なし | `ExecutionResult[]` | 有効な全ルールセットを順次実行 |
+| `undo_file` | `source: string, dest: string` | `Result<()>` | 単一ファイルのUndo |
+| `undo_all` | `files: UndoRequest[]` | `UndoResult[]` | 複数ファイルの一括Undo |
+| `select_folder` | なし | `Option<string>` | フォルダ選択ダイアログを表示 |
+| `import_rulesets` | `path: string` | `Result<Ruleset[]>` | YAMLファイルからインポート |
+| `export_rulesets` | `path: string` | `Result<()>` | YAMLファイルへエクスポート |
+
+### 4.3 データ型定義（Rust）
+
+```rust
+struct Ruleset {
+    id: String,               // UUID v4（YAMLに永続化）
+    name: String,
+    enabled: bool,
+    source_dir: PathBuf,
+    destination_dir: PathBuf,
+    action: Action,           // Move | Copy
+    overwrite: bool,
+    filters: Filters,
+}
+
+enum Action {
+    Move,
+    Copy,
+}
+
+struct Filters {
+    extensions: Option<Vec<String>>,
+    filename: Option<FilenameFilter>,
+    created_at: Option<DateTimeRange>,
+    modified_at: Option<DateTimeRange>,
+}
+
+struct FilenameFilter {
+    pattern: String,
+    match_type: MatchType,    // Glob | Regex
+}
+
+struct DateTimeRange {
+    start: Option<DateTime<Local>>,
+    end: Option<DateTime<Local>>,
+}
+
+struct ExecutionResult {
+    ruleset_id: String,
+    ruleset_name: String,
+    action: Action,
+    status: ExecutionStatus,  // Completed | PartialFailure | Failed
+    succeeded: Vec<FileResult>,
+    skipped: Vec<FileResult>,
+    errors: Vec<FileResult>,
+}
+
+struct FileResult {
+    filename: String,
+    source_path: PathBuf,
+    destination_path: Option<PathBuf>,
+    reason: Option<String>,
+}
+
+struct UndoRequest {
+    source_path: PathBuf,     // 元のパス（戻し先）
+    destination_path: PathBuf, // 現在のパス（移動先にあるファイル）
+}
+```
+
+---
+
+## 5. 国際化 (i18n)
+
+### 5.1 対応言語
+
+| 言語 | ロケールコード | 備考 |
+|------|-------------|------|
+| 日本語 | `ja` | デフォルト言語 |
+| 英語 | `en` | |
+
+### 5.2 実装方針
+
+- フロントエンド: `react-i18next` を使用
+- 翻訳ファイルは `src/locales/{lang}/translation.json` に配置
+- 言語切替はアプリ設定から行う（メイン画面のツールバーまたは設定メニュー）
+- OSのシステム言語を検出し、初回起動時に自動選択する
+- ルールセット名などユーザ入力値は翻訳対象外
+
+### 5.3 翻訳ファイル構成
+
+```
+src/locales/
+├── ja/
+│   └── translation.json
+└── en/
+    └── translation.json
+```
+
+---
+
+## 6. プロジェクト構成
+
+```
+filo/
+├── docs/
+│   └── SPEC.md                  # 本仕様書
+├── src-tauri/                   # Rust バックエンド
+│   ├── src/
+│   │   ├── main.rs              # エントリポイント
+│   │   ├── commands.rs          # Tauri IPCコマンド
+│   │   ├── ruleset.rs           # ルールセットの型定義・YAML処理
+│   │   ├── engine.rs            # ファイル操作エンジン
+│   │   └── filters.rs           # フィルタロジック
+│   ├── Cargo.toml
+│   └── tauri.conf.json
+├── src/                         # React フロントエンド
+│   ├── App.tsx
+│   ├── main.tsx
+│   ├── components/
+│   │   ├── RulesetList.tsx      # ルールセット一覧
+│   │   ├── RulesetCard.tsx      # 個別ルールセット表示
+│   │   ├── RulesetEditDialog.tsx # 編集ダイアログ
+│   │   ├── ExecutionResult.tsx  # 実行結果ダイアログ
+│   │   └── Toolbar.tsx          # ツールバー
+│   ├── hooks/
+│   │   └── useRulesets.ts       # ルールセット管理のカスタムフック
+│   ├── lib/
+│   │   ├── commands.ts          # Tauriコマンド呼び出し
+│   │   └── types.ts             # TypeScript型定義
+│   ├── locales/                 # i18n翻訳ファイル
+│   │   ├── ja/translation.json
+│   │   └── en/translation.json
+│   └── store/
+│       └── rulesetStore.ts      # Zustand ストア
+├── CLAUDE.md
+├── package.json
+├── tsconfig.json
+├── vite.config.ts
+└── tailwind.config.ts
+```
+
+---
+
+## 7. 非機能要件
+
+| 項目 | 内容 |
+|------|------|
+| 対象OS | Windows 11 |
+| UI言語 | 日本語（デフォルト）、英語 |
+| ファイル探索範囲 | 移動元フォルダの直下のみ（サブフォルダ再帰なし） |
+| 実行の安全性 | エラー発生時も残りのファイル処理を継続する |
+| 移動先フォルダ | 存在しない場合は自動作成する |
+| 同時実行 | 同一ルールセットの並行実行は禁止（UIで制御） |
+
+---
+
+## 8. v1 スコープ外（将来検討）
+
+以下の機能はv1には含めず、将来的に検討する。
+
+- 自動実行（スケジュール / ファイル監視）
+- ルールセット作成の補助機能
+- サブフォルダの再帰探索オプション
+- 実行履歴の永続保存・閲覧
+- 日本語・英語以外の言語対応

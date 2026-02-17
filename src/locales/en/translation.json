@@ -1,0 +1,69 @@
+{
+  "app": {
+    "title": "Filo",
+    "statusBar": "{{total}} rulesets ({{enabled}} enabled)"
+  },
+  "toolbar": {
+    "create": "New",
+    "executeAll": "Execute All",
+    "import": "Import",
+    "export": "Export"
+  },
+  "ruleset": {
+    "move": "Move",
+    "copy": "Copy",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "execute": "Execute",
+    "edit": "Edit",
+    "delete": "Delete",
+    "deleteConfirm": "Delete ruleset \"{{name}}\"?"
+  },
+  "editor": {
+    "title": "Edit Ruleset",
+    "titleCreate": "Create Ruleset",
+    "name": "Name",
+    "sourceDir": "Source",
+    "destinationDir": "Destination",
+    "action": "Action",
+    "overwrite": "Overwrite existing files",
+    "filters": "Filter Conditions",
+    "extensions": "Extensions",
+    "extensionAdd": "Add",
+    "filename": "Filename Pattern",
+    "matchType": "Match Type",
+    "matchTypeGlob": "Glob",
+    "matchTypeRegex": "Regex",
+    "pattern": "Pattern",
+    "createdAt": "Created At",
+    "modifiedAt": "Modified At",
+    "dateStart": "Start",
+    "dateEnd": "End",
+    "save": "Save",
+    "cancel": "Cancel",
+    "validation": {
+      "nameRequired": "Name is required",
+      "sourceDirRequired": "Source folder is required",
+      "destinationDirRequired": "Destination folder is required",
+      "filterRequired": "At least one filter condition is required"
+    }
+  },
+  "result": {
+    "title": "Execution Result",
+    "action": "Action",
+    "status": "Status",
+    "statusCompleted": "Completed",
+    "statusPartialFailure": "Partial Failure",
+    "statusFailed": "Failed",
+    "succeeded": "Succeeded",
+    "skipped": "Skipped",
+    "errors": "Errors",
+    "items": "{{count}} files",
+    "undoAll": "Undo All",
+    "undoFile": "Undo",
+    "undone": "Undone",
+    "close": "Close",
+    "skipReason": "File with same name exists at destination",
+    "undoError": "Failed to undo"
+  }
+}
