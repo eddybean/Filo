@@ -1,10 +1,13 @@
 import { useEffect, useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { open, save } from "@tauri-apps/plugin-dialog";
+import { open, save, confirm } from "@tauri-apps/plugin-dialog";
+import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Toolbar } from "./components/Toolbar";
 import { RulesetList } from "./components/RulesetList";
 import { RulesetEditDialog } from "./components/RulesetEditDialog";
 import { ExecutionResultDialog } from "./components/ExecutionResultDialog";
+import { LoadingOverlay } from "./components/LoadingOverlay";
 import { useRulesetStore } from "./store/rulesetStore";
 import type { Ruleset, ExecutionResult } from "./lib/types";
 import * as commands from "./lib/commands";
@@ -13,6 +16,7 @@ function App() {
   const { t } = useTranslation();
   const {
     rulesets,
+    error: storeError,
     fetchRulesets,
     saveRuleset,
     deleteRuleset,
@@ -28,10 +32,51 @@ function App() {
     null,
   );
   const [executing, setExecuting] = useState(false);
+  const [executingFile, setExecutingFile] = useState<string | null>(null);
+  const [executingRuleset, setExecutingRuleset] = useState<string | null>(null);
 
   useEffect(() => {
     fetchRulesets();
   }, [fetchRulesets]);
+
+  useEffect(() => {
+    const unlisten = listen<{ ruleset_name: string; filename: string }>(
+      "execution-progress",
+      (event) => {
+        setExecutingRuleset(event.payload.ruleset_name);
+        setExecutingFile(event.payload.filename);
+      },
+    );
+    return () => {
+      unlisten.then((f) => f());
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!executing) return;
+
+    const appWindow = getCurrentWindow();
+    let unlisten: (() => void) | undefined;
+    let mounted = true;
+
+    appWindow
+      .onCloseRequested(async (event) => {
+        event.preventDefault();
+        const ok = await confirm(t("execution.closeWarning"), { kind: "warning" });
+        if (ok) {
+          await appWindow.destroy();
+        }
+      })
+      .then((fn) => {
+        if (mounted) unlisten = fn;
+        else fn();
+      });
+
+    return () => {
+      mounted = false;
+      unlisten?.();
+    };
+  }, [executing, t]);
 
   const handleToggleEnabled = useCallback(
     async (id: string, enabled: boolean) => {
@@ -46,11 +91,15 @@ function App() {
   const handleExecute = useCallback(
     async (id: string) => {
       setExecuting(true);
+      setExecutingFile(null);
+      setExecutingRuleset(null);
       try {
         const result = await executeRuleset(id);
         setExecutionResults([result]);
       } finally {
         setExecuting(false);
+        setExecutingFile(null);
+        setExecutingRuleset(null);
       }
     },
     [executeRuleset],
@@ -58,6 +107,8 @@ function App() {
 
   const handleExecuteAll = useCallback(async () => {
     setExecuting(true);
+    setExecutingFile(null);
+    setExecutingRuleset(null);
     try {
       const results = await executeAll();
       if (results.length > 0) {
@@ -65,6 +116,8 @@ function App() {
       }
     } finally {
       setExecuting(false);
+      setExecutingFile(null);
+      setExecutingRuleset(null);
     }
   }, [executeAll]);
 
@@ -72,7 +125,8 @@ function App() {
     async (id: string) => {
       const rs = rulesets.find((r) => r.id === id);
       const message = t("ruleset.deleteConfirm", { name: rs?.name ?? id });
-      if (window.confirm(message)) {
+      const ok = await confirm(message);
+      if (ok) {
         await deleteRuleset(id);
       }
     },
@@ -144,6 +198,12 @@ function App() {
         )}
       </div>
 
+      {storeError && (
+        <div className="px-3 py-2 bg-red-50 border-t border-red-200 text-xs text-red-700">
+          {storeError}
+        </div>
+      )}
+
       <div className="px-3 py-2 border-t bg-white text-xs text-gray-500">
         {t("app.statusBar", { total: rulesets.length, enabled: enabledCount })}
       </div>
@@ -161,6 +221,13 @@ function App() {
         <ExecutionResultDialog
           results={executionResults}
           onClose={() => setExecutionResults(null)}
+        />
+      )}
+
+      {executing && (
+        <LoadingOverlay
+          currentFile={executingFile}
+          currentRuleset={executingRuleset}
         />
       )}
     </main>

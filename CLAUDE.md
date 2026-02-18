@@ -19,6 +19,7 @@ Filo はユーザ定義のルールセットに基づいてファイルを移動
 | 開発サーバ | `scripts\dev.bat` | `npm run tauri dev` |
 | ビルド | `scripts\build.bat` | `npm run tauri build` |
 | テスト | `scripts\test.bat` | `scripts/test.sh` |
+| クリーン | `scripts\clean.bat` | `cargo clean --manifest-path src-tauri/Cargo.toml` |
 
 ## Build & Run Commands
 

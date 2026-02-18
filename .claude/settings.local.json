@@ -3,7 +3,8 @@
     "allow": [
       "Bash(export PATH=\"$HOME/.cargo/bin:/usr/bin:$PATH\")",
       "Bash(cargo test:*)",
-      "Bash($HOME/.cargo/bin/cargo test:*)"
+      "Bash($HOME/.cargo/bin/cargo test:*)",
+      "Bash(npx tsc:*)"
     ]
   }
 }

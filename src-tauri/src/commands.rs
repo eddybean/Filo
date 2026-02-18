@@ -1,8 +1,16 @@
 use crate::engine::{self, ExecutionResult, UndoRequest};
 use crate::ruleset::{Ruleset, RulesetFile};
+use serde::Serialize;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+use tauri::Emitter;
 use uuid::Uuid;
+
+#[derive(Clone, Serialize)]
+struct ExecutionProgressPayload {
+    ruleset_name: String,
+    filename: String,
+}
 
 static RULESETS: Mutex<Option<(PathBuf, RulesetFile)>> = Mutex::new(None);
 
@@ -101,25 +109,48 @@ pub fn reorder_rulesets(ids: Vec<String>) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn execute_ruleset(id: String) -> Result<ExecutionResult, String> {
+pub fn execute_ruleset(
+    app: tauri::AppHandle,
+    id: String,
+) -> Result<ExecutionResult, String> {
     let (_, file) = load_rulesets()?;
     let ruleset = file
         .rulesets
         .iter()
         .find(|r| r.id == id)
         .ok_or_else(|| format!("Ruleset not found: {}", id))?;
+    let ruleset_name = ruleset.name.clone();
 
-    Ok(engine::execute_ruleset(ruleset))
+    Ok(engine::execute_ruleset(ruleset, |filename| {
+        let _ = app.emit(
+            "execution-progress",
+            ExecutionProgressPayload {
+                ruleset_name: ruleset_name.clone(),
+                filename: filename.to_string(),
+            },
+        );
+    }))
 }
 
 #[tauri::command]
-pub fn execute_all() -> Result<Vec<ExecutionResult>, String> {
+pub fn execute_all(app: tauri::AppHandle) -> Result<Vec<ExecutionResult>, String> {
     let (_, file) = load_rulesets()?;
     let results: Vec<ExecutionResult> = file
         .rulesets
         .iter()
         .filter(|r| r.enabled)
-        .map(engine::execute_ruleset)
+        .map(|ruleset| {
+            let ruleset_name = ruleset.name.clone();
+            engine::execute_ruleset(ruleset, |filename| {
+                let _ = app.emit(
+                    "execution-progress",
+                    ExecutionProgressPayload {
+                        ruleset_name: ruleset_name.clone(),
+                        filename: filename.to_string(),
+                    },
+                );
+            })
+        })
         .collect();
 
     Ok(results)

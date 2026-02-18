@@ -1,4 +1,3 @@
-use chrono::{DateTime, Local};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -24,8 +23,8 @@ pub struct FilenameFilter {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct DateTimeRange {
-    pub start: Option<DateTime<Local>>,
-    pub end: Option<DateTime<Local>>,
+    pub start: Option<String>,
+    pub end: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -41,8 +40,8 @@ pub struct Ruleset {
     pub id: String,
     pub name: String,
     pub enabled: bool,
-    pub source_dir: PathBuf,
-    pub destination_dir: PathBuf,
+    pub source_dir: String,
+    pub destination_dir: String,
     pub action: Action,
     pub overwrite: bool,
     pub filters: Filters,
@@ -78,10 +77,10 @@ impl Ruleset {
         if self.name.trim().is_empty() {
             return Err(RulesetError::Validation("name is required".into()));
         }
-        if self.source_dir.as_os_str().is_empty() {
+        if self.source_dir.trim().is_empty() {
             return Err(RulesetError::Validation("source_dir is required".into()));
         }
-        if self.destination_dir.as_os_str().is_empty() {
+        if self.destination_dir.trim().is_empty() {
             return Err(RulesetError::Validation(
                 "destination_dir is required".into(),
             ));
@@ -92,6 +91,14 @@ impl Ruleset {
             ));
         }
         Ok(())
+    }
+
+    pub fn source_path(&self) -> PathBuf {
+        PathBuf::from(&self.source_dir)
+    }
+
+    pub fn destination_path(&self) -> PathBuf {
+        PathBuf::from(&self.destination_dir)
     }
 }
 
@@ -130,8 +137,8 @@ mod tests {
             id: "550e8400-e29b-41d4-a716-446655440000".to_string(),
             name: "画像ファイルを整理".to_string(),
             enabled: true,
-            source_dir: PathBuf::from("C:/Users/user/Downloads"),
-            destination_dir: PathBuf::from("C:/Users/user/Pictures/sorted"),
+            source_dir: "C:/Users/user/Downloads".to_string(),
+            destination_dir: "C:/Users/user/Pictures/sorted".to_string(),
             action: Action::Move,
             overwrite: false,
             filters: Filters {
@@ -241,14 +248,14 @@ rulesets:
     #[test]
     fn test_validate_empty_source_dir() {
         let mut rs = sample_ruleset();
-        rs.source_dir = PathBuf::from("");
+        rs.source_dir = "".to_string();
         assert!(rs.validate().is_err());
     }
 
     #[test]
     fn test_validate_empty_destination_dir() {
         let mut rs = sample_ruleset();
-        rs.destination_dir = PathBuf::from("");
+        rs.destination_dir = "".to_string();
         assert!(rs.validate().is_err());
     }
 

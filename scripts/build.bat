@@ -1,5 +1,6 @@
 @echo off
 REM Filo プロダクションビルド
+call "%~dp0_paths.bat"
 cd /d "%~dp0.."
 echo Filo をビルドしています...
 echo.

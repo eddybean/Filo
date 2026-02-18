@@ -1,5 +1,6 @@
 @echo off
 REM Filo テスト実行
+call "%~dp0_paths.bat"
 cd /d "%~dp0.."
 echo.
 echo === Rust テスト ===

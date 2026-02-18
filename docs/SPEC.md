@@ -156,7 +156,7 @@ rulesets:
 
 ```
 ┌───────────────────────────────────────────┐
-│  ルールセット編集                           │
+│  ルールセット編集                       [×] │
 ├───────────────────────────────────────────┤
 │                                             │
 │  名前:  [画像ファイルを整理            ]    │
@@ -189,6 +189,8 @@ rulesets:
 
 | 機能 | 説明 |
 |------|------|
+| 閉じるボタン | ダイアログ右上の × ボタンでダイアログを閉じる |
+| 変更破棄の確認 | × またはキャンセルボタン押下時、入力中の内容がある場合は破棄確認ダイアログを表示。OKのみ閉じる |
 | フォルダ選択 | 📁 ボタンでOS標準のフォルダ選択ダイアログを呼び出す |
 | アクション選択 | 「移動」と「コピー」をラジオボタンで切替 |
 | 拡張子入力 | タグ形式で複数追加・削除が可能 |
@@ -250,6 +252,43 @@ rulesets:
 | Undo後の表示 | Undo成功時はステータスを「↩ 元に戻しました」に更新。失敗時はエラー表示 |
 | 有効期間 | 実行結果ダイアログが開いている間のみ有効。ダイアログを閉じるとUndo不可 |
 
+### 3.4 実行中ローディングUI
+
+ルールセット実行中（個別・一括ともに）は画面全体にオーバーレイを表示する。
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Filo                                      [─][□][×] │
+├─────────────────────────────────────────────────────┤
+│  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  │
+│  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  │
+│  ░░░░░░░  ┌─────────────────────────────┐  ░░░░░░░  │
+│  ░░░░░░░  │         ◌ 処理中...          │  ░░░░░░░  │
+│  ░░░░░░░  │  画像整理 / screenshot_1.jpg  │  ░░░░░░░  │
+│  ░░░░░░░  └─────────────────────────────┘  ░░░░░░░  │
+│  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  │
+└─────────────────────────────────────────────────────┘
+```
+
+#### ローディングUIの仕様
+
+| 項目 | 内容 |
+|------|------|
+| 表示タイミング | 実行ボタン押下直後から実行完了まで |
+| スピナー | アニメーションするスピナーを表示 |
+| 処理中ファイル表示 | バックエンドから `execution-progress` イベントを受信し、「ルールセット名 / ファイル名」形式でリアルタイム表示 |
+| 操作ブロック | オーバーレイ中はルールセット一覧・ツールバーへの操作が不可（オーバーレイが前面に表示） |
+
+#### アプリ終了防止
+
+| 項目 | 内容 |
+|------|------|
+| 対象 | 実行中（`executing = true`）の状態でのみ有効 |
+| 動作 | ウィンドウの閉じるボタン押下時に確認ダイアログを表示 |
+| OK時 | アプリを終了する |
+| キャンセル時 | 終了をキャンセルし実行を継続する |
+| 非実行中 | ハンドラを登録しないため、ウィンドウは通常通り即時終了する |
+
 ---
 
 ## 4. バックエンド仕様
@@ -305,13 +344,20 @@ rulesets:
 | `save_ruleset` | `Ruleset` | `Result<()>` | ルールセットを保存（新規/更新） |
 | `delete_ruleset` | `id: string` | `Result<()>` | ルールセットを削除 |
 | `reorder_rulesets` | `ids: string[]` | `Result<()>` | 並び順を更新 |
-| `execute_ruleset` | `id: string` | `ExecutionResult` | 単一ルールセット実行 |
-| `execute_all` | なし | `ExecutionResult[]` | 有効な全ルールセットを順次実行 |
+| `execute_ruleset` | `id: string` | `ExecutionResult` | 単一ルールセット実行。処理ファイルごとに `execution-progress` イベントを発火 |
+| `execute_all` | なし | `ExecutionResult[]` | 有効な全ルールセットを順次実行。処理ファイルごとに `execution-progress` イベントを発火 |
 | `undo_file` | `source: string, dest: string` | `Result<()>` | 単一ファイルのUndo |
 | `undo_all` | `files: UndoRequest[]` | `UndoResult[]` | 複数ファイルの一括Undo |
-| `select_folder` | なし | `Option<string>` | フォルダ選択ダイアログを表示 |
 | `import_rulesets` | `path: string` | `Result<Ruleset[]>` | YAMLファイルからインポート |
 | `export_rulesets` | `path: string` | `Result<()>` | YAMLファイルへエクスポート |
+
+> **注**: フォルダ選択ダイアログ (`select_folder`) はフロントエンドから `@tauri-apps/plugin-dialog` の `open()` を直接呼び出すため、Tauri コマンドとしては存在しない。
+
+#### Tauri イベント（バックエンド → フロントエンド）
+
+| イベント名 | ペイロード | 発火タイミング |
+|-----------|-----------|-------------|
+| `execution-progress` | `{ ruleset_name: string, filename: string }` | ルールセット実行中、フィルタ条件を通過したファイルを処理するたびに発火 |
 
 ### 4.3 データ型定義（Rust）
 
@@ -320,8 +366,8 @@ struct Ruleset {
     id: String,               // UUID v4（YAMLに永続化）
     name: String,
     enabled: bool,
-    source_dir: PathBuf,
-    destination_dir: PathBuf,
+    source_dir: String,       // フォルダパス（文字列。IPC経由で受け渡すためStringを使用）
+    destination_dir: String,  // フォルダパス（同上）
     action: Action,           // Move | Copy
     overwrite: bool,
     filters: Filters,
@@ -345,8 +391,8 @@ struct FilenameFilter {
 }
 
 struct DateTimeRange {
-    start: Option<DateTime<Local>>,
-    end: Option<DateTime<Local>>,
+    start: Option<String>,    // RFC3339形式の日時文字列（例: "2025-01-01T00:00:00+09:00"）
+    end: Option<String>,      // RFC3339形式の日時文字列
 }
 
 struct ExecutionResult {
@@ -367,10 +413,18 @@ struct FileResult {
 }
 
 struct UndoRequest {
-    source_path: PathBuf,     // 元のパス（戻し先）
+    source_path: PathBuf,      // 元のパス（戻し先）
     destination_path: PathBuf, // 現在のパス（移動先にあるファイル）
 }
+
+// Tauriイベントペイロード
+struct ExecutionProgressPayload {
+    ruleset_name: String,
+    filename: String,
+}
 ```
+
+> **注**: `source_dir` / `destination_dir` を `PathBuf` ではなく `String` にしているのは、Tauri v2 の IPC シリアライズで TypeScript の `string` と相互変換するため。内部でファイル操作する際は `PathBuf::from(&self.source_dir)` 等で変換する。
 
 ---
 
@@ -422,13 +476,12 @@ filo/
 │   ├── App.tsx
 │   ├── main.tsx
 │   ├── components/
-│   │   ├── RulesetList.tsx      # ルールセット一覧
-│   │   ├── RulesetCard.tsx      # 個別ルールセット表示
+│   │   ├── RulesetList.tsx       # ルールセット一覧（ドラッグ&ドロップ）
+│   │   ├── RulesetCard.tsx       # 個別ルールセット表示
 │   │   ├── RulesetEditDialog.tsx # 編集ダイアログ
-│   │   ├── ExecutionResult.tsx  # 実行結果ダイアログ
-│   │   └── Toolbar.tsx          # ツールバー
-│   ├── hooks/
-│   │   └── useRulesets.ts       # ルールセット管理のカスタムフック
+│   │   ├── ExecutionResultDialog.tsx # 実行結果ダイアログ
+│   │   ├── LoadingOverlay.tsx    # 実行中ローディングオーバーレイ
+│   │   └── Toolbar.tsx           # ツールバー
 │   ├── lib/
 │   │   ├── commands.ts          # Tauriコマンド呼び出し
 │   │   └── types.ts             # TypeScript型定義

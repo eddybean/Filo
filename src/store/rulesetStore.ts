@@ -34,12 +34,8 @@ export const useRulesetStore = create<RulesetState>((set, get) => ({
   },
 
   saveRuleset: async (ruleset: Ruleset) => {
-    try {
-      await commands.saveRuleset(ruleset);
-      await get().fetchRulesets();
-    } catch (e) {
-      set({ error: String(e) });
-    }
+    await commands.saveRuleset(ruleset);
+    await get().fetchRulesets();
   },
 
   deleteRuleset: async (id: string) => {

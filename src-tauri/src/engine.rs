@@ -48,13 +48,16 @@ impl ExecutionResult {
     }
 }
 
-pub fn execute_ruleset(ruleset: &Ruleset) -> ExecutionResult {
+pub fn execute_ruleset(ruleset: &Ruleset, on_progress: impl Fn(&str)) -> ExecutionResult {
     let mut succeeded = Vec::new();
     let mut skipped = Vec::new();
     let mut errors = Vec::new();
 
+    let source_dir = ruleset.source_path();
+    let destination_dir = ruleset.destination_path();
+
     // Check source directory
-    if !ruleset.source_dir.exists() {
+    if !source_dir.exists() {
         return ExecutionResult {
             ruleset_id: ruleset.id.clone(),
             ruleset_name: ruleset.name.clone(),
@@ -64,7 +67,7 @@ pub fn execute_ruleset(ruleset: &Ruleset) -> ExecutionResult {
             skipped,
             errors: vec![FileResult {
                 filename: String::new(),
-                source_path: ruleset.source_dir.clone(),
+                source_path: source_dir,
                 destination_path: None,
                 reason: Some("Source directory does not exist".to_string()),
             }],
@@ -72,7 +75,7 @@ pub fn execute_ruleset(ruleset: &Ruleset) -> ExecutionResult {
     }
 
     // Create destination directory if needed
-    if let Err(e) = fs::create_dir_all(&ruleset.destination_dir) {
+    if let Err(e) = fs::create_dir_all(&destination_dir) {
         return ExecutionResult {
             ruleset_id: ruleset.id.clone(),
             ruleset_name: ruleset.name.clone(),
@@ -82,7 +85,7 @@ pub fn execute_ruleset(ruleset: &Ruleset) -> ExecutionResult {
             skipped,
             errors: vec![FileResult {
                 filename: String::new(),
-                source_path: ruleset.destination_dir.clone(),
+                source_path: destination_dir,
                 destination_path: None,
                 reason: Some(format!("Failed to create destination directory: {}", e)),
             }],
@@ -90,7 +93,7 @@ pub fn execute_ruleset(ruleset: &Ruleset) -> ExecutionResult {
     }
 
     // List files in source directory (non-recursive)
-    let entries = match fs::read_dir(&ruleset.source_dir) {
+    let entries = match fs::read_dir(&source_dir) {
         Ok(entries) => entries,
         Err(e) => {
             return ExecutionResult {
@@ -102,7 +105,7 @@ pub fn execute_ruleset(ruleset: &Ruleset) -> ExecutionResult {
                 skipped,
                 errors: vec![FileResult {
                     filename: String::new(),
-                    source_path: ruleset.source_dir.clone(),
+                    source_path: source_dir,
                     destination_path: None,
                     reason: Some(format!("Failed to read source directory: {}", e)),
                 }],
@@ -145,7 +148,8 @@ pub fn execute_ruleset(ruleset: &Ruleset) -> ExecutionResult {
             .unwrap_or_default()
             .to_string_lossy()
             .to_string();
-        let dest_path = ruleset.destination_dir.join(&filename);
+        on_progress(&filename);
+        let dest_path = destination_dir.join(&filename);
 
         // Check for existing file
         if dest_path.exists() && !ruleset.overwrite {
@@ -233,8 +237,8 @@ mod tests {
             id: "test-id".to_string(),
             name: "test".to_string(),
             enabled: true,
-            source_dir: source.to_path_buf(),
-            destination_dir: dest.to_path_buf(),
+            source_dir: source.to_str().unwrap().to_string(),
+            destination_dir: dest.to_str().unwrap().to_string(),
             action: Action::Move,
             overwrite: false,
             filters: Filters {
@@ -255,7 +259,7 @@ mod tests {
         fs::write(src.path().join("world.txt"), "content2").unwrap();
 
         let ruleset = create_test_ruleset(src.path(), dst.path());
-        let result = execute_ruleset(&ruleset);
+        let result = execute_ruleset(&ruleset, |_| {});
 
         assert_eq!(result.status, ExecutionStatus::Completed);
         assert_eq!(result.succeeded.len(), 2);
@@ -281,7 +285,7 @@ mod tests {
         let mut ruleset = create_test_ruleset(src.path(), dst.path());
         ruleset.action = Action::Copy;
 
-        let result = execute_ruleset(&ruleset);
+        let result = execute_ruleset(&ruleset, |_| {});
 
         assert_eq!(result.status, ExecutionStatus::Completed);
         assert_eq!(result.succeeded.len(), 1);
@@ -301,7 +305,7 @@ mod tests {
         fs::write(dst.path().join("exists.txt"), "old content").unwrap();
 
         let ruleset = create_test_ruleset(src.path(), dst.path());
-        let result = execute_ruleset(&ruleset);
+        let result = execute_ruleset(&ruleset, |_| {});
 
         assert_eq!(result.skipped.len(), 1);
         // Old content should remain
@@ -322,7 +326,7 @@ mod tests {
         let mut ruleset = create_test_ruleset(src.path(), dst.path());
         ruleset.overwrite = true;
 
-        let result = execute_ruleset(&ruleset);
+        let result = execute_ruleset(&ruleset, |_| {});
 
         assert_eq!(result.succeeded.len(), 1);
         assert_eq!(result.skipped.len(), 0);
@@ -341,7 +345,7 @@ mod tests {
         fs::write(src.path().join("skip.pdf"), "content").unwrap();
 
         let ruleset = create_test_ruleset(src.path(), dst.path());
-        let result = execute_ruleset(&ruleset);
+        let result = execute_ruleset(&ruleset, |_| {});
 
         assert_eq!(result.succeeded.len(), 1);
         assert_eq!(result.succeeded[0].filename, "match.txt");
@@ -356,7 +360,7 @@ mod tests {
         let non_existent = PathBuf::from("/tmp/filo_test_nonexistent_dir");
 
         let ruleset = create_test_ruleset(&non_existent, dst.path());
-        let result = execute_ruleset(&ruleset);
+        let result = execute_ruleset(&ruleset, |_| {});
 
         assert_eq!(result.status, ExecutionStatus::Failed);
         assert_eq!(result.errors.len(), 1);
@@ -371,7 +375,7 @@ mod tests {
         fs::write(src.path().join("file.txt"), "content").unwrap();
 
         let ruleset = create_test_ruleset(src.path(), &dst);
-        let result = execute_ruleset(&ruleset);
+        let result = execute_ruleset(&ruleset, |_| {});
 
         assert_eq!(result.status, ExecutionStatus::Completed);
         assert!(dst.join("file.txt").exists());
@@ -386,7 +390,7 @@ mod tests {
         fs::write(src.path().join("file.txt"), "content").unwrap();
 
         let ruleset = create_test_ruleset(src.path(), dst.path());
-        let result = execute_ruleset(&ruleset);
+        let result = execute_ruleset(&ruleset, |_| {});
 
         assert_eq!(result.succeeded.len(), 1);
         // Subdirectory should remain
@@ -407,7 +411,7 @@ mod tests {
             match_type: MatchType::Glob,
         });
 
-        let result = execute_ruleset(&ruleset);
+        let result = execute_ruleset(&ruleset, |_| {});
 
         assert_eq!(result.succeeded.len(), 1);
         assert_eq!(result.succeeded[0].filename, "screenshot_001.txt");

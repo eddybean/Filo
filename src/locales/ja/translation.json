@@ -39,6 +39,8 @@
     "modifiedAt": "更新日時",
     "dateStart": "開始",
     "dateEnd": "終了",
+    "close": "閉じる",
+    "discardConfirm": "入力中の内容が破棄されます。よろしいですか？",
     "save": "保存",
     "cancel": "キャンセル",
     "validation": {
@@ -47,6 +49,11 @@
       "destinationDirRequired": "移動先フォルダを指定してください",
       "filterRequired": "フィルタ条件を1つ以上指定してください"
     }
+  },
+  "execution": {
+    "processing": "処理中...",
+    "processingFile": "{{ruleset}} / {{file}}",
+    "closeWarning": "ファイルを処理中です。アプリを終了しますか？"
   },
   "result": {
     "title": "実行結果",

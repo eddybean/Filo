@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { confirm } from "@tauri-apps/plugin-dialog";
 import type { Ruleset, Action, MatchType, Filters } from "../lib/types";
 
 interface RulesetEditDialogProps {
   ruleset: Ruleset | null; // null = create new
-  onSave: (ruleset: Ruleset) => void;
+  onSave: (ruleset: Ruleset) => Promise<void>;
   onCancel: () => void;
   onSelectFolder: () => Promise<string | null>;
 }
@@ -35,6 +36,7 @@ export function RulesetEditDialog({
 }: RulesetEditDialogProps) {
   const { t } = useTranslation();
   const isNew = !ruleset;
+  const initialForm = useRef<Ruleset>(ruleset ?? emptyRuleset());
   const [form, setForm] = useState<Ruleset>(ruleset ?? emptyRuleset());
   const [extensionInput, setExtensionInput] = useState("");
   const [errors, setErrors] = useState<string[]>([]);
@@ -85,10 +87,25 @@ export function RulesetEditDialog({
     return errs.length === 0;
   }
 
-  function handleSave() {
-    if (validate()) {
-      onSave(form);
+  async function handleSave() {
+    if (!validate()) return;
+    try {
+      await onSave(form);
+    } catch (e) {
+      setErrors([String(e)]);
     }
+  }
+
+  function hasChanges(): boolean {
+    return JSON.stringify(form) !== JSON.stringify(initialForm.current);
+  }
+
+  async function handleClose() {
+    if (hasChanges()) {
+      const ok = await confirm(t("editor.discardConfirm"));
+      if (!ok) return;
+    }
+    onCancel();
   }
 
   async function selectSource() {
@@ -104,10 +121,17 @@ export function RulesetEditDialog({
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="p-4 border-b">
+        <div className="p-4 border-b flex items-center justify-between">
           <h2 className="text-lg font-semibold">
             {isNew ? t("editor.titleCreate") : t("editor.title")}
           </h2>
+          <button
+            onClick={handleClose}
+            aria-label={t("editor.close")}
+            className="text-gray-400 hover:text-gray-700 text-xl leading-none"
+          >
+            ×
+          </button>
         </div>
 
         <div className="p-4 space-y-4">
@@ -370,7 +394,7 @@ export function RulesetEditDialog({
 
         <div className="flex justify-end gap-2 p-4 border-t">
           <button
-            onClick={onCancel}
+            onClick={handleClose}
             className="px-4 py-1.5 border rounded text-sm hover:bg-gray-50"
           >
             {t("editor.cancel")}

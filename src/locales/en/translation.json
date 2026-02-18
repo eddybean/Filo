@@ -39,6 +39,8 @@
     "modifiedAt": "Modified At",
     "dateStart": "Start",
     "dateEnd": "End",
+    "close": "Close",
+    "discardConfirm": "Unsaved changes will be discarded. Are you sure?",
     "save": "Save",
     "cancel": "Cancel",
     "validation": {
@@ -47,6 +49,11 @@
       "destinationDirRequired": "Destination folder is required",
       "filterRequired": "At least one filter condition is required"
     }
+  },
+  "execution": {
+    "processing": "Processing...",
+    "processingFile": "{{ruleset}} / {{file}}",
+    "closeWarning": "Files are being processed. Close the app?"
   },
   "result": {
     "title": "Execution Result",

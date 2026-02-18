@@ -74,17 +74,23 @@ fn match_filename(path: &Path, pattern: &str, match_type: &MatchType) -> bool {
 
 fn match_datetime_range(
     value: &DateTime<Local>,
-    start: &Option<DateTime<Local>>,
-    end: &Option<DateTime<Local>>,
+    start: &Option<String>,
+    end: &Option<String>,
 ) -> bool {
-    if let Some(start) = start {
-        if value < start {
-            return false;
+    if let Some(start_str) = start {
+        if let Ok(start_dt) = DateTime::parse_from_rfc3339(start_str) {
+            let start_dt: DateTime<Local> = start_dt.into();
+            if value < &start_dt {
+                return false;
+            }
         }
     }
-    if let Some(end) = end {
-        if value > end {
-            return false;
+    if let Some(end_str) = end {
+        if let Ok(end_dt) = DateTime::parse_from_rfc3339(end_str) {
+            let end_dt: DateTime<Local> = end_dt.into();
+            if value > &end_dt {
+                return false;
+            }
         }
     }
     true
@@ -268,7 +274,9 @@ mod tests {
             filename: None,
             created_at: None,
             modified_at: Some(DateTimeRange {
-                start: Some(chrono::Local::now() - chrono::Duration::hours(1)),
+                start: Some(
+                    (chrono::Local::now() - chrono::Duration::hours(1)).to_rfc3339(),
+                ),
                 end: None,
             }),
         };
@@ -288,7 +296,9 @@ mod tests {
             created_at: None,
             modified_at: Some(DateTimeRange {
                 start: None,
-                end: Some(chrono::Local::now() - chrono::Duration::hours(1)),
+                end: Some(
+                    (chrono::Local::now() - chrono::Duration::hours(1)).to_rfc3339(),
+                ),
             }),
         };
 
