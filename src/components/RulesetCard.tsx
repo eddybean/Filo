@@ -22,15 +22,16 @@ export function RulesetCard({
 }: RulesetCardProps) {
   const { t } = useTranslation();
 
-  const actionLabel =
-    ruleset.action === "move" ? t("ruleset.move") : t("ruleset.copy");
+  const actionLabel = ruleset.action === "move" ? t("ruleset.move") : t("ruleset.copy");
 
   const filterSummary = buildFilterSummary(ruleset);
 
   return (
     <div
       className={`flex items-center gap-3 p-3 border rounded-lg ${
-        ruleset.enabled ? "bg-white border-gray-200" : "bg-gray-50 border-gray-100 opacity-60"
+        ruleset.enabled
+          ? "bg-white border-gray-200"
+          : "bg-gray-50 border-gray-100 opacity-60"
       }`}
     >
       <input
@@ -59,9 +60,7 @@ export function RulesetCard({
           {ruleset.source_dir} → {ruleset.destination_dir}
         </div>
         {filterSummary && (
-          <div className="text-xs text-gray-400 truncate mt-0.5">
-            {filterSummary}
-          </div>
+          <div className="text-xs text-gray-400 truncate mt-0.5">{filterSummary}</div>
         )}
       </div>
 

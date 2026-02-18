@@ -24,7 +24,9 @@ function App() {
   const [editingRuleset, setEditingRuleset] = useState<Ruleset | null | undefined>(
     undefined, // undefined = closed, null = new, Ruleset = editing
   );
-  const [executionResults, setExecutionResults] = useState<ExecutionResult[] | null>(null);
+  const [executionResults, setExecutionResults] = useState<ExecutionResult[] | null>(
+    null,
+  );
   const [executing, setExecuting] = useState(false);
 
   useEffect(() => {

@@ -10,10 +10,7 @@ interface ExecutionResultDialogProps {
 
 type UndoStatus = "pending" | "undone" | "error";
 
-export function ExecutionResultDialog({
-  results,
-  onClose,
-}: ExecutionResultDialogProps) {
+export function ExecutionResultDialog({ results, onClose }: ExecutionResultDialogProps) {
   const { t } = useTranslation();
 
   return (
@@ -44,9 +41,7 @@ export function ExecutionResultDialog({
 
 function SingleResult({ result }: { result: ExecutionResult }) {
   const { t } = useTranslation();
-  const [undoStatuses, setUndoStatuses] = useState<
-    Record<string, UndoStatus>
-  >({});
+  const [undoStatuses, setUndoStatuses] = useState<Record<string, UndoStatus>>({});
 
   const isMove = result.action === "move";
 
@@ -63,10 +58,7 @@ function SingleResult({ result }: { result: ExecutionResult }) {
 
   async function handleUndoAll() {
     for (const file of result.succeeded) {
-      if (
-        file.destination_path &&
-        undoStatuses[file.source_path] !== "undone"
-      ) {
+      if (file.destination_path && undoStatuses[file.source_path] !== "undone") {
         await handleUndoFile(file);
       }
     }
@@ -78,8 +70,7 @@ function SingleResult({ result }: { result: ExecutionResult }) {
     Failed: t("result.statusFailed"),
   }[result.status];
 
-  const actionLabel =
-    result.action === "move" ? t("ruleset.move") : t("ruleset.copy");
+  const actionLabel = result.action === "move" ? t("ruleset.move") : t("ruleset.copy");
 
   return (
     <div>
@@ -103,7 +94,8 @@ function SingleResult({ result }: { result: ExecutionResult }) {
       {/* Summary */}
       <div className="flex gap-4 text-sm mb-2">
         <span className="text-green-600">
-          ✓ {t("result.succeeded")}: {t("result.items", { count: result.succeeded.length })}
+          ✓ {t("result.succeeded")}:{" "}
+          {t("result.items", { count: result.succeeded.length })}
         </span>
         <span className="text-yellow-600">
           ⚠ {t("result.skipped")}: {t("result.items", { count: result.skipped.length })}
@@ -118,10 +110,7 @@ function SingleResult({ result }: { result: ExecutionResult }) {
         {result.succeeded.map((file) => {
           const status = undoStatuses[file.source_path];
           return (
-            <div
-              key={file.source_path}
-              className="flex items-center gap-2 px-3 py-2"
-            >
+            <div key={file.source_path} className="flex items-center gap-2 px-3 py-2">
               {status === "undone" ? (
                 <span className="text-orange-500">↩</span>
               ) : (
@@ -153,10 +142,7 @@ function SingleResult({ result }: { result: ExecutionResult }) {
         })}
 
         {result.skipped.map((file) => (
-          <div
-            key={file.source_path}
-            className="flex items-center gap-2 px-3 py-2"
-          >
+          <div key={file.source_path} className="flex items-center gap-2 px-3 py-2">
             <span className="text-yellow-500">⚠</span>
             <div className="flex-1 min-w-0">
               <div className="font-medium truncate">{file.filename}</div>
@@ -168,10 +154,7 @@ function SingleResult({ result }: { result: ExecutionResult }) {
         ))}
 
         {result.errors.map((file) => (
-          <div
-            key={file.source_path}
-            className="flex items-center gap-2 px-3 py-2"
-          >
+          <div key={file.source_path} className="flex items-center gap-2 px-3 py-2">
             <span className="text-red-500">✗</span>
             <div className="flex-1 min-w-0">
               <div className="font-medium truncate">{file.filename}</div>

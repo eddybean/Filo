@@ -11,14 +11,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Filo はユーザ定義のルールセットに基づいてファイルを移動/コピーする Windows 11 向け GUI アプリ。
 技術スタック: Tauri v2 (Rust バックエンド) + React 19 + TypeScript フロントエンド。
 
+## セットアップ・ビルドスクリプト
+
+| スクリプト | Windows | Linux/macOS |
+|-----------|---------|-------------|
+| 環境構築 | `scripts\setup.bat` | `scripts/setup.sh` |
+| 開発サーバ | `scripts\dev.bat` | `npm run tauri dev` |
+| ビルド | `scripts\build.bat` | `npm run tauri build` |
+| テスト | `scripts\test.bat` | `scripts/test.sh` |
+
 ## Build & Run Commands
 
 ```bash
-# 環境変数の読み込み（各シェルセッションで必要）
+# Linux/macOS: 環境変数の読み込み（各シェルセッションで必要）
 export PATH="$HOME/.cargo/bin:$PATH" && eval "$($HOME/.cargo/bin/fnm env)"
 
 # Rust バックエンドテスト
-cargo test --lib                          # src-tauri/ 内で実行、または --manifest-path 指定
+cargo test --lib --manifest-path src-tauri/Cargo.toml
 
 # フロントエンドテスト
 npx vitest run                            # 全テスト実行
@@ -30,7 +39,7 @@ npx tsc --noEmit
 # 開発サーバ起動（Tauri + Vite）
 npm run tauri dev
 
-# プロダクションビルド
+# プロダクションビルド（ターゲットOS上で実行が必要）
 npm run tauri build
 ```
 

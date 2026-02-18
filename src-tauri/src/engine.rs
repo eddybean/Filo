@@ -122,7 +122,11 @@ pub fn execute_ruleset(ruleset: &Ruleset) -> ExecutionResult {
             Ok(m) => m,
             Err(e) => {
                 errors.push(FileResult {
-                    filename: path.file_name().unwrap_or_default().to_string_lossy().to_string(),
+                    filename: path
+                        .file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .to_string(),
                     source_path: path,
                     destination_path: None,
                     reason: Some(format!("Failed to read metadata: {}", e)),
@@ -136,7 +140,11 @@ pub fn execute_ruleset(ruleset: &Ruleset) -> ExecutionResult {
             continue;
         }
 
-        let filename = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+        let filename = path
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
         let dest_path = ruleset.destination_dir.join(&filename);
 
         // Check for existing file
@@ -152,11 +160,10 @@ pub fn execute_ruleset(ruleset: &Ruleset) -> ExecutionResult {
 
         // Execute action
         let result = match ruleset.action {
-            Action::Move => fs::rename(&path, &dest_path)
-                .or_else(|_| {
-                    // rename may fail across filesystems, fallback to copy+delete
-                    fs::copy(&path, &dest_path).and_then(|_| fs::remove_file(&path))
-                }),
+            Action::Move => fs::rename(&path, &dest_path).or_else(|_| {
+                // rename may fail across filesystems, fallback to copy+delete
+                fs::copy(&path, &dest_path).and_then(|_| fs::remove_file(&path))
+            }),
             Action::Copy => fs::copy(&path, &dest_path).map(|_| ()),
         };
 
@@ -219,7 +226,7 @@ pub fn undo_file_move(source_path: &Path, destination_path: &Path) -> Result<(),
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ruleset::{Filters, FilenameFilter, MatchType};
+    use crate::ruleset::{FilenameFilter, Filters, MatchType};
 
     fn create_test_ruleset(source: &Path, dest: &Path) -> Ruleset {
         Ruleset {

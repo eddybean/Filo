@@ -71,8 +71,7 @@ export function RulesetEditDialog({
     const errs: string[] = [];
     if (!form.name.trim()) errs.push(t("editor.validation.nameRequired"));
     if (!form.source_dir) errs.push(t("editor.validation.sourceDirRequired"));
-    if (!form.destination_dir)
-      errs.push(t("editor.validation.destinationDirRequired"));
+    if (!form.destination_dir) errs.push(t("editor.validation.destinationDirRequired"));
 
     const f = form.filters;
     const hasFilter =
@@ -122,9 +121,7 @@ export function RulesetEditDialog({
 
           {/* Name */}
           <div>
-            <label className="block text-sm font-medium mb-1">
-              {t("editor.name")}
-            </label>
+            <label className="block text-sm font-medium mb-1">{t("editor.name")}</label>
             <input
               type="text"
               value={form.name}
@@ -239,7 +236,9 @@ export function RulesetEditDialog({
                   type="text"
                   value={extensionInput}
                   onChange={(e) => setExtensionInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addExtension())}
+                  onKeyDown={(e) =>
+                    e.key === "Enter" && (e.preventDefault(), addExtension())
+                  }
                   placeholder=".jpg"
                   className="flex-1 px-2 py-1 border rounded text-xs"
                 />
@@ -303,8 +302,7 @@ export function RulesetEditDialog({
                     updateFilters({
                       filename: {
                         pattern: value,
-                        match_type:
-                          form.filters.filename?.match_type ?? "glob",
+                        match_type: form.filters.filename?.match_type ?? "glob",
                       },
                     });
                   } else {
@@ -324,9 +322,7 @@ export function RulesetEditDialog({
                 </label>
                 <div className="flex gap-2">
                   <div className="flex-1">
-                    <span className="text-xs text-gray-500">
-                      {t("editor.dateStart")}
-                    </span>
+                    <span className="text-xs text-gray-500">{t("editor.dateStart")}</span>
                     <input
                       type="datetime-local"
                       value={form.filters[field]?.start ?? ""}
@@ -345,9 +341,7 @@ export function RulesetEditDialog({
                     />
                   </div>
                   <div className="flex-1">
-                    <span className="text-xs text-gray-500">
-                      {t("editor.dateEnd")}
-                    </span>
+                    <span className="text-xs text-gray-500">{t("editor.dateEnd")}</span>
                     <input
                       type="datetime-local"
                       value={form.filters[field]?.end ?? ""}

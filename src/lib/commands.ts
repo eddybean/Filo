@@ -1,9 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type {
-  Ruleset,
-  ExecutionResult,
-  UndoRequest,
-} from "./types";
+import type { Ruleset, ExecutionResult, UndoRequest } from "./types";
 
 export async function getRulesets(): Promise<Ruleset[]> {
   return invoke<Ruleset[]>("get_rulesets");
@@ -29,10 +25,7 @@ export async function executeAll(): Promise<ExecutionResult[]> {
   return invoke<ExecutionResult[]>("execute_all");
 }
 
-export async function undoFile(
-  source: string,
-  dest: string,
-): Promise<void> {
+export async function undoFile(source: string, dest: string): Promise<void> {
   return invoke("undo_file", { source, dest });
 }
 

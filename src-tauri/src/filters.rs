@@ -2,11 +2,7 @@ use crate::ruleset::{Filters, MatchType};
 use chrono::{DateTime, Local};
 use std::path::Path;
 
-pub fn matches_filters(
-    path: &Path,
-    metadata: &std::fs::Metadata,
-    filters: &Filters,
-) -> bool {
+pub fn matches_filters(path: &Path, metadata: &std::fs::Metadata, filters: &Filters) -> bool {
     if let Some(extensions) = &filters.extensions {
         if !match_extensions(path, extensions) {
             return false;

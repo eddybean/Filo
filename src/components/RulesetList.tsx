@@ -36,8 +36,9 @@ function SortableItem({
   ruleset: Ruleset;
   index: number;
 } & Omit<React.ComponentProps<typeof RulesetCard>, "ruleset" | "index">) {
-  const { attributes, listeners, setNodeRef, transform, transition } =
-    useSortable({ id: ruleset.id });
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
+    id: ruleset.id,
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),
