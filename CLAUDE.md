@@ -69,6 +69,36 @@ src/                    # React フロントエンド
 - `id` は UUID v4 で自動生成、YAML にも永続化
 - i18n は react-i18next、翻訳キーは `src/locales/` の JSON を参照
 
+## 実行環境とコマンド選択
+
+### 動作環境
+
+- **OS**: Windows 11（シェルは bash、cmd.exe ではない）
+- Bash ツールは bash 構文を使うが、Windows 固有の制約がある
+
+### Bash ツールで使ってはいけないコマンド
+
+以下は Bash ツールでは失敗するか制限されているため、代わりに専用ツールを使う：
+
+| コマンド | 推奨される代替手段 |
+|-------------|---------|
+| `echo` | テキスト出力は直接コメントで行う。ファイル書き込みは Write ツール |
+| `cat`, `head`, `tail` | Read ツール |
+| `grep`, `rg` | Grep ツール |
+| `find`, `ls` | Glob ツール |
+| `sed`, `awk` | Edit ツール |
+
+### Node.js スクリプト内でのパス・コマンド解決
+
+- `process.cwd()` は実行コンテキストによって変わるため **`__dirname` から絶対パスを計算する**
+- `shell: true` + `npx` は Windows の `cmd.exe` 経由になり環境差異が生じる。代わりに **`process.execPath`（現在の Node バイナリ）+ ローカルバイナリの絶対パス** を使う
+  ```js
+  // 例: vitest を確実に実行する
+  const projectRoot = path.resolve(__dirname, "../..");
+  const vitestMjs = path.join(projectRoot, "node_modules/vitest/vitest.mjs");
+  spawnSync(process.execPath, [vitestMjs, "run"], { cwd: projectRoot });
+  ```
+
 ## Development Philosophy
 
 ### Test-Driven Development (TDD)
@@ -81,6 +111,18 @@ src/                    # React フロントエンド
 - その後、テストをパスさせる実装を進める
 - 実装中はテストを変更せず、コードを修正し続ける
 - すべてのテストが通過するまで最大3回まで繰り返す
+
+### テスト実行の義務
+
+**ソースコードを変更（機能実装・バグ修正・リファクタリング）した場合は、作業完了時に必ず以下を実行してから応答を終了すること：**
+
+```bash
+npx vitest run
+```
+
+- 全テストが通過したら結果をユーザーに報告する
+- 失敗したら原因を分析して修正し、再度実行する（最大3回）
+- テストが存在しない変更（ドキュメント修正等）は省略してよい
 
 ### 開発ログの記録
 

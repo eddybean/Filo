@@ -119,13 +119,14 @@ export function RulesetEditDialog({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+    <div data-testid="edit-dialog" className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="p-4 border-b flex items-center justify-between">
           <h2 className="text-lg font-semibold">
             {isNew ? t("editor.titleCreate") : t("editor.title")}
           </h2>
           <button
+            data-testid="btn-close"
             onClick={handleClose}
             aria-label={t("editor.close")}
             className="text-gray-400 hover:text-gray-700 text-xl leading-none"
@@ -136,7 +137,7 @@ export function RulesetEditDialog({
 
         <div className="p-4 space-y-4">
           {errors.length > 0 && (
-            <div className="bg-red-50 border border-red-200 rounded p-2 text-sm text-red-700">
+            <div data-testid="validation-errors" className="bg-red-50 border border-red-200 rounded p-2 text-sm text-red-700">
               {errors.map((e, i) => (
                 <div key={i}>{e}</div>
               ))}
@@ -147,6 +148,7 @@ export function RulesetEditDialog({
           <div>
             <label className="block text-sm font-medium mb-1">{t("editor.name")}</label>
             <input
+              data-testid="field-name"
               type="text"
               value={form.name}
               onChange={(e) => updateField("name", e.target.value)}
@@ -161,6 +163,7 @@ export function RulesetEditDialog({
                 {t("editor.sourceDir")}
               </label>
               <input
+                data-testid="field-source-dir"
                 type="text"
                 value={form.source_dir}
                 onChange={(e) => updateField("source_dir", e.target.value)}
@@ -181,6 +184,7 @@ export function RulesetEditDialog({
                 {t("editor.destinationDir")}
               </label>
               <input
+                data-testid="field-dest-dir"
                 type="text"
                 value={form.destination_dir}
                 onChange={(e) => updateField("destination_dir", e.target.value)}
@@ -257,6 +261,7 @@ export function RulesetEditDialog({
               </div>
               <div className="flex gap-1">
                 <input
+                  data-testid="extension-input"
                   type="text"
                   value={extensionInput}
                   onChange={(e) => setExtensionInput(e.target.value)}
@@ -267,6 +272,7 @@ export function RulesetEditDialog({
                   className="flex-1 px-2 py-1 border rounded text-xs"
                 />
                 <button
+                  data-testid="btn-extension-add"
                   onClick={addExtension}
                   className="px-2 py-1 border rounded text-xs hover:bg-gray-50"
                 >
@@ -394,12 +400,14 @@ export function RulesetEditDialog({
 
         <div className="flex justify-end gap-2 p-4 border-t">
           <button
+            data-testid="btn-cancel"
             onClick={handleClose}
             className="px-4 py-1.5 border rounded text-sm hover:bg-gray-50"
           >
             {t("editor.cancel")}
           </button>
           <button
+            data-testid="btn-save"
             onClick={handleSave}
             className="px-4 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
           >

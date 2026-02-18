@@ -14,7 +14,7 @@ export function ExecutionResultDialog({ results, onClose }: ExecutionResultDialo
   const { t } = useTranslation();
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+    <div data-testid="result-dialog" className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] overflow-y-auto">
         <div className="p-4 border-b">
           <h2 className="text-lg font-semibold">{t("result.title")}</h2>
@@ -28,6 +28,7 @@ export function ExecutionResultDialog({ results, onClose }: ExecutionResultDialo
 
         <div className="flex justify-end p-4 border-t">
           <button
+            data-testid="btn-result-close"
             onClick={onClose}
             className="px-4 py-1.5 bg-gray-600 text-white rounded text-sm hover:bg-gray-700"
           >
@@ -83,6 +84,7 @@ function SingleResult({ result }: { result: ExecutionResult }) {
         </div>
         {isMove && result.succeeded.length > 0 && (
           <button
+            data-testid="btn-undo-all"
             onClick={handleUndoAll}
             className="text-xs px-2 py-1 border border-orange-300 text-orange-600 rounded hover:bg-orange-50"
           >

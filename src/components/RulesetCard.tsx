@@ -28,6 +28,7 @@ export function RulesetCard({
 
   return (
     <div
+      data-testid="ruleset-card"
       className={`flex items-center gap-3 p-3 border rounded-lg ${
         ruleset.enabled
           ? "bg-white border-gray-200"
@@ -35,6 +36,7 @@ export function RulesetCard({
       }`}
     >
       <input
+        data-testid="ruleset-toggle"
         type="checkbox"
         checked={ruleset.enabled}
         onChange={(e) => onToggleEnabled(ruleset.id, e.target.checked)}
@@ -45,8 +47,9 @@ export function RulesetCard({
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="font-medium text-sm truncate">{ruleset.name}</span>
+          <span data-testid="ruleset-name" className="font-medium text-sm truncate">{ruleset.name}</span>
           <span
+            data-testid="ruleset-action-badge"
             className={`text-xs px-1.5 py-0.5 rounded ${
               ruleset.action === "move"
                 ? "bg-blue-100 text-blue-700"
@@ -66,6 +69,7 @@ export function RulesetCard({
 
       <div className="flex items-center gap-1">
         <button
+          data-testid="ruleset-execute"
           onClick={() => onExecute(ruleset.id)}
           disabled={executing}
           className="p-1.5 text-green-600 hover:bg-green-50 rounded disabled:opacity-50"
@@ -74,6 +78,7 @@ export function RulesetCard({
           ▶
         </button>
         <button
+          data-testid="ruleset-edit"
           onClick={() => onEdit(ruleset)}
           className="p-1.5 text-gray-600 hover:bg-gray-100 rounded"
           title={t("ruleset.edit")}
@@ -81,6 +86,7 @@ export function RulesetCard({
           ✎
         </button>
         <button
+          data-testid="ruleset-delete"
           onClick={() => onDelete(ruleset.id)}
           className="p-1.5 text-red-600 hover:bg-red-50 rounded"
           title={t("ruleset.delete")}
