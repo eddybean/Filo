@@ -11,6 +11,7 @@ interface RulesetState {
   fetchRulesets: () => Promise<void>;
   saveRuleset: (ruleset: Ruleset) => Promise<void>;
   deleteRuleset: (id: string) => Promise<void>;
+  duplicateRuleset: (id: string) => Promise<void>;
   reorderRulesets: (ids: string[]) => Promise<void>;
   executeRuleset: (id: string) => Promise<ExecutionResult>;
   executeAll: () => Promise<ExecutionResult[]>;
@@ -34,17 +35,43 @@ export const useRulesetStore = create<RulesetState>((set, get) => ({
   },
 
   saveRuleset: async (ruleset: Ruleset) => {
+    await commands.saveRuleset(ruleset);
+    await get().fetchRulesets();
+  },
+
+  deleteRuleset: async (id: string) => {
     try {
-      await commands.saveRuleset(ruleset);
+      await commands.deleteRuleset(id);
       await get().fetchRulesets();
     } catch (e) {
       set({ error: String(e) });
     }
   },
 
-  deleteRuleset: async (id: string) => {
+  duplicateRuleset: async (id: string) => {
     try {
-      await commands.deleteRuleset(id);
+      const { rulesets } = get();
+      const original = rulesets.find((r) => r.id === id);
+      if (!original) return;
+
+      const existingNames = new Set(rulesets.map((r) => r.name));
+      const newName = generateCopyName(original.name, existingNames);
+
+      const newId = await commands.saveRuleset({ ...original, id: "", name: newName });
+      await get().fetchRulesets();
+
+      const updatedIds = get().rulesets.map((r) => r.id);
+      const filteredIds = updatedIds.filter((i) => i !== newId);
+      const originalIdx = filteredIds.findIndex((i) => i === id);
+      if (originalIdx === -1) return;
+
+      const reorderedIds = [
+        ...filteredIds.slice(0, originalIdx + 1),
+        newId,
+        ...filteredIds.slice(originalIdx + 1),
+      ];
+
+      await commands.reorderRulesets(reorderedIds);
       await get().fetchRulesets();
     } catch (e) {
       set({ error: String(e) });
@@ -76,3 +103,14 @@ export const useRulesetStore = create<RulesetState>((set, get) => ({
 
   clearResults: () => set({ executionResults: [] }),
 }));
+
+function generateCopyName(name: string, existingNames: Set<string>): string {
+  const base = name.replace(/ copy\d+$/, "");
+  let counter = 1;
+  let candidate = `${base} copy${counter}`;
+  while (existingNames.has(candidate)) {
+    counter++;
+    candidate = `${base} copy${counter}`;
+  }
+  return candidate;
+}

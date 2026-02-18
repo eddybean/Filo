@@ -1,8 +1,16 @@
 use crate::engine::{self, ExecutionResult, UndoRequest};
 use crate::ruleset::{Ruleset, RulesetFile};
+use serde::Serialize;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+use tauri::Emitter;
 use uuid::Uuid;
+
+#[derive(Clone, Serialize)]
+struct ExecutionProgressPayload {
+    ruleset_name: String,
+    filename: String,
+}
 
 static RULESETS: Mutex<Option<(PathBuf, RulesetFile)>> = Mutex::new(None);
 
@@ -64,20 +72,22 @@ pub fn get_rulesets() -> Result<Vec<Ruleset>, String> {
 }
 
 #[tauri::command]
-pub fn save_ruleset(mut ruleset: Ruleset) -> Result<(), String> {
+pub fn save_ruleset(mut ruleset: Ruleset) -> Result<String, String> {
     ruleset.validate().map_err(|e| e.to_string())?;
 
     if ruleset.id.is_empty() {
         ruleset.id = Uuid::new_v4().to_string();
     }
 
+    let id = ruleset.id.clone();
     update_and_save(|file| {
         if let Some(existing) = file.rulesets.iter_mut().find(|r| r.id == ruleset.id) {
             *existing = ruleset;
         } else {
             file.rulesets.push(ruleset);
         }
-    })
+    })?;
+    Ok(id)
 }
 
 #[tauri::command]
@@ -101,25 +111,45 @@ pub fn reorder_rulesets(ids: Vec<String>) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn execute_ruleset(id: String) -> Result<ExecutionResult, String> {
+pub fn execute_ruleset(app: tauri::AppHandle, id: String) -> Result<ExecutionResult, String> {
     let (_, file) = load_rulesets()?;
     let ruleset = file
         .rulesets
         .iter()
         .find(|r| r.id == id)
         .ok_or_else(|| format!("Ruleset not found: {}", id))?;
+    let ruleset_name = ruleset.name.clone();
 
-    Ok(engine::execute_ruleset(ruleset))
+    Ok(engine::execute_ruleset(ruleset, |filename| {
+        let _ = app.emit(
+            "execution-progress",
+            ExecutionProgressPayload {
+                ruleset_name: ruleset_name.clone(),
+                filename: filename.to_string(),
+            },
+        );
+    }))
 }
 
 #[tauri::command]
-pub fn execute_all() -> Result<Vec<ExecutionResult>, String> {
+pub fn execute_all(app: tauri::AppHandle) -> Result<Vec<ExecutionResult>, String> {
     let (_, file) = load_rulesets()?;
     let results: Vec<ExecutionResult> = file
         .rulesets
         .iter()
         .filter(|r| r.enabled)
-        .map(|r| engine::execute_ruleset(r))
+        .map(|ruleset| {
+            let ruleset_name = ruleset.name.clone();
+            engine::execute_ruleset(ruleset, |filename| {
+                let _ = app.emit(
+                    "execution-progress",
+                    ExecutionProgressPayload {
+                        ruleset_name: ruleset_name.clone(),
+                        filename: filename.to_string(),
+                    },
+                );
+            })
+        })
         .collect();
 
     Ok(results)
@@ -150,4 +180,73 @@ pub fn import_rulesets(path: String) -> Result<Vec<Ruleset>, String> {
 pub fn export_rulesets(path: String) -> Result<(), String> {
     let (_, file) = load_rulesets()?;
     file.save(Path::new(&path)).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn open_in_explorer(path: String) -> Result<(), String> {
+    std::process::Command::new("explorer.exe")
+        .arg(&path)
+        .spawn()
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn list_source_files(dir: String) -> Result<Vec<String>, String> {
+    let path = Path::new(&dir);
+    if !path.exists() || !path.is_dir() {
+        return Err(format!("Directory not found: {}", dir));
+    }
+    let mut files: Vec<String> = std::fs::read_dir(path)
+        .map_err(|e| e.to_string())?
+        .filter_map(|entry| {
+            let entry = entry.ok()?;
+            if entry.path().is_file() {
+                entry.file_name().to_str().map(|s| s.to_string())
+            } else {
+                None
+            }
+        })
+        .collect();
+    files.sort();
+    Ok(files)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    #[test]
+    fn test_list_source_files_returns_filenames() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join("foo.txt"), "").unwrap();
+        fs::write(dir.path().join("bar.jpg"), "").unwrap();
+
+        let result = list_source_files(dir.path().to_str().unwrap().to_string()).unwrap();
+        assert_eq!(result, vec!["bar.jpg", "foo.txt"]);
+    }
+
+    #[test]
+    fn test_list_source_files_excludes_directories() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join("file.txt"), "").unwrap();
+        fs::create_dir(dir.path().join("subdir")).unwrap();
+
+        let result = list_source_files(dir.path().to_str().unwrap().to_string()).unwrap();
+        assert_eq!(result, vec!["file.txt"]);
+    }
+
+    #[test]
+    fn test_list_source_files_empty_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = list_source_files(dir.path().to_str().unwrap().to_string()).unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_list_source_files_nonexistent_dir() {
+        let result = list_source_files("/nonexistent/path/12345".to_string());
+        assert!(result.is_err());
+    }
 }

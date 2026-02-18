@@ -19,6 +19,8 @@ pub fn run() {
             commands::undo_all,
             commands::import_rulesets,
             commands::export_rulesets,
+            commands::open_in_explorer,
+            commands::list_source_files,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

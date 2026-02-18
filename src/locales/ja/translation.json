@@ -17,14 +17,18 @@
     "execute": "実行",
     "edit": "編集",
     "delete": "削除",
-    "deleteConfirm": "ルールセット「{{name}}」を削除しますか？"
+    "deleteConfirm": "ルールセット「{{name}}」を削除しますか？",
+    "menu": "メニュー",
+    "duplicate": "複製",
+    "openSourceDir": "対象フォルダを開く",
+    "openDestinationDir": "保存先フォルダを開く"
   },
   "editor": {
     "title": "ルールセット編集",
     "titleCreate": "ルールセット作成",
     "name": "名前",
-    "sourceDir": "移動元",
-    "destinationDir": "移動先",
+    "sourceDir": "対象フォルダ",
+    "destinationDir": "保存先フォルダ",
     "action": "アクション",
     "overwrite": "同名ファイルを上書きする",
     "filters": "フィルタ条件",
@@ -39,14 +43,34 @@
     "modifiedAt": "更新日時",
     "dateStart": "開始",
     "dateEnd": "終了",
+    "close": "閉じる",
+    "discardConfirm": "入力中の内容が破棄されます。よろしいですか？",
     "save": "保存",
     "cancel": "キャンセル",
+    "destinationTemplateHint": "正規表現の (?P<name>...) グループを {name} の形式で保存先パスに使用できます（例: C:/sorted/{label}/{author}）",
+    "regexTester": {
+      "sampleInput": "ファイル名でテスト",
+      "samplePlaceholder": "例: IMG_20250101_001.jpg",
+      "matched": "マッチしました",
+      "noMatch": "マッチしません",
+      "syntaxError": "構文エラー: {{message}}",
+      "resolvedPath": "保存先",
+      "loadFiles": "ソースフォルダのファイルで確認",
+      "loadError": "読み込みエラー: {{message}}",
+      "matchCount": "{{matched}} / {{total}} 件マッチ"
+    },
     "validation": {
       "nameRequired": "名前を入力してください",
-      "sourceDirRequired": "移動元フォルダを指定してください",
-      "destinationDirRequired": "移動先フォルダを指定してください",
-      "filterRequired": "フィルタ条件を1つ以上指定してください"
+      "sourceDirRequired": "対象フォルダを指定してください",
+      "destinationDirRequired": "保存先フォルダを指定してください",
+      "filterRequired": "フィルタ条件を1つ以上指定してください",
+      "destinationTemplateRequiresRegex": "保存先パスにテンプレート変数を使う場合、ファイル名フィルタに正規表現を指定してください"
     }
+  },
+  "execution": {
+    "processing": "処理中...",
+    "processingFile": "{{ruleset}} / {{file}}",
+    "closeWarning": "ファイルを処理中です。アプリを終了しますか？"
   },
   "result": {
     "title": "実行結果",

@@ -1,4 +1,3 @@
-use chrono::{DateTime, Local};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -24,8 +23,8 @@ pub struct FilenameFilter {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct DateTimeRange {
-    pub start: Option<DateTime<Local>>,
-    pub end: Option<DateTime<Local>>,
+    pub start: Option<String>,
+    pub end: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -41,8 +40,8 @@ pub struct Ruleset {
     pub id: String,
     pub name: String,
     pub enabled: bool,
-    pub source_dir: PathBuf,
-    pub destination_dir: PathBuf,
+    pub source_dir: String,
+    pub destination_dir: String,
     pub action: Action,
     pub overwrite: bool,
     pub filters: Filters,
@@ -64,6 +63,23 @@ pub enum RulesetError {
     Validation(String),
 }
 
+/// `destination_dir` にテンプレート変数 `{xxx}` が含まれているか判定する。
+fn has_template_vars(s: &str) -> bool {
+    let mut chars = s.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '{' {
+            if chars.peek().is_some() {
+                for inner in chars.by_ref() {
+                    if inner == '}' {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+    false
+}
+
 impl Filters {
     pub fn has_at_least_one(&self) -> bool {
         self.extensions.as_ref().is_some_and(|e| !e.is_empty())
@@ -78,10 +94,10 @@ impl Ruleset {
         if self.name.trim().is_empty() {
             return Err(RulesetError::Validation("name is required".into()));
         }
-        if self.source_dir.as_os_str().is_empty() {
+        if self.source_dir.trim().is_empty() {
             return Err(RulesetError::Validation("source_dir is required".into()));
         }
-        if self.destination_dir.as_os_str().is_empty() {
+        if self.destination_dir.trim().is_empty() {
             return Err(RulesetError::Validation(
                 "destination_dir is required".into(),
             ));
@@ -91,7 +107,30 @@ impl Ruleset {
                 "at least one filter is required".into(),
             ));
         }
+        // テンプレート変数がある場合は正規表現フィルタが必須
+        if has_template_vars(&self.destination_dir) {
+            let is_regex = self
+                .filters
+                .filename
+                .as_ref()
+                .map(|f| f.match_type == MatchType::Regex)
+                .unwrap_or(false);
+            if !is_regex {
+                return Err(RulesetError::Validation(
+                    "destination_dir contains template variables but filename filter is not regex"
+                        .into(),
+                ));
+            }
+        }
         Ok(())
+    }
+
+    pub fn source_path(&self) -> PathBuf {
+        PathBuf::from(&self.source_dir)
+    }
+
+    pub fn destination_path(&self) -> PathBuf {
+        PathBuf::from(&self.destination_dir)
     }
 }
 
@@ -130,8 +169,8 @@ mod tests {
             id: "550e8400-e29b-41d4-a716-446655440000".to_string(),
             name: "画像ファイルを整理".to_string(),
             enabled: true,
-            source_dir: PathBuf::from("C:/Users/user/Downloads"),
-            destination_dir: PathBuf::from("C:/Users/user/Pictures/sorted"),
+            source_dir: "C:/Users/user/Downloads".to_string(),
+            destination_dir: "C:/Users/user/Pictures/sorted".to_string(),
             action: Action::Move,
             overwrite: false,
             filters: Filters {
@@ -241,14 +280,14 @@ rulesets:
     #[test]
     fn test_validate_empty_source_dir() {
         let mut rs = sample_ruleset();
-        rs.source_dir = PathBuf::from("");
+        rs.source_dir = "".to_string();
         assert!(rs.validate().is_err());
     }
 
     #[test]
     fn test_validate_empty_destination_dir() {
         let mut rs = sample_ruleset();
-        rs.destination_dir = PathBuf::from("");
+        rs.destination_dir = "".to_string();
         assert!(rs.validate().is_err());
     }
 
@@ -306,5 +345,49 @@ rulesets:
             ..empty.clone()
         };
         assert!(with_ext.has_at_least_one());
+    }
+
+    // --- テンプレート変数バリデーションのテスト ---
+
+    #[test]
+    fn test_validate_template_with_regex_ok() {
+        let mut rs = sample_ruleset();
+        rs.destination_dir = "D:/sorted/{label}/{author}".to_string();
+        rs.filters.filename = Some(FilenameFilter {
+            pattern: r"^\((?P<label>[^)]+)\) \[(?P<author>[^]]+)\] .+".to_string(),
+            match_type: MatchType::Regex,
+        });
+        assert!(rs.validate().is_ok());
+    }
+
+    #[test]
+    fn test_validate_template_with_glob_fails() {
+        let mut rs = sample_ruleset();
+        rs.destination_dir = "D:/sorted/{label}".to_string();
+        rs.filters.filename = Some(FilenameFilter {
+            pattern: "*.zip".to_string(),
+            match_type: MatchType::Glob,
+        });
+        assert!(rs.validate().is_err());
+    }
+
+    #[test]
+    fn test_validate_template_without_filename_filter_fails() {
+        let mut rs = sample_ruleset();
+        rs.destination_dir = "D:/sorted/{label}".to_string();
+        rs.filters = Filters {
+            extensions: Some(vec![".zip".to_string()]),
+            filename: None,
+            created_at: None,
+            modified_at: None,
+        };
+        assert!(rs.validate().is_err());
+    }
+
+    #[test]
+    fn test_validate_no_template_with_glob_ok() {
+        // テンプレートなしの従来ルールセットは変更なし
+        let rs = sample_ruleset();
+        assert!(rs.validate().is_ok());
     }
 }

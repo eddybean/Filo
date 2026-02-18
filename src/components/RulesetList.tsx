@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   DndContext,
   closestCenter,
@@ -24,6 +25,7 @@ interface RulesetListProps {
   onExecute: (id: string) => void;
   onEdit: (ruleset: Ruleset) => void;
   onDelete: (id: string) => void;
+  onDuplicate: (id: string) => void;
   onReorder: (ids: string[]) => void;
   executing: boolean;
 }
@@ -35,7 +37,11 @@ function SortableItem({
 }: {
   ruleset: Ruleset;
   index: number;
-} & Omit<React.ComponentProps<typeof RulesetCard>, "ruleset" | "index">) {
+} & Omit<
+  React.ComponentProps<typeof RulesetCard>,
+  "ruleset" | "index" | "onMenuOpenChange"
+>) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
     id: ruleset.id,
   });
@@ -46,8 +52,19 @@ function SortableItem({
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <RulesetCard ruleset={ruleset} index={index} {...props} />
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className={isMenuOpen ? "relative z-10" : ""}
+    >
+      <RulesetCard
+        ruleset={ruleset}
+        index={index}
+        {...props}
+        onMenuOpenChange={setIsMenuOpen}
+      />
     </div>
   );
 }
@@ -58,11 +75,16 @@ export function RulesetList({
   onExecute,
   onEdit,
   onDelete,
+  onDuplicate,
   onReorder,
   executing,
 }: RulesetListProps) {
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     }),
@@ -88,7 +110,7 @@ export function RulesetList({
         items={rulesets.map((r) => r.id)}
         strategy={verticalListSortingStrategy}
       >
-        <div className="flex flex-col gap-2 p-3">
+        <div className="flex flex-col gap-2.5 p-4">
           {rulesets.map((ruleset, index) => (
             <SortableItem
               key={ruleset.id}
@@ -98,6 +120,7 @@ export function RulesetList({
               onExecute={onExecute}
               onEdit={onEdit}
               onDelete={onDelete}
+              onDuplicate={onDuplicate}
               executing={executing}
             />
           ))}

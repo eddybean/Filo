@@ -5,8 +5,8 @@ export async function getRulesets(): Promise<Ruleset[]> {
   return invoke<Ruleset[]>("get_rulesets");
 }
 
-export async function saveRuleset(ruleset: Ruleset): Promise<void> {
-  return invoke("save_ruleset", { ruleset });
+export async function saveRuleset(ruleset: Ruleset): Promise<string> {
+  return invoke<string>("save_ruleset", { ruleset });
 }
 
 export async function deleteRuleset(id: string): Promise<void> {
@@ -41,4 +41,12 @@ export async function importRulesets(path: string): Promise<Ruleset[]> {
 
 export async function exportRulesets(path: string): Promise<void> {
   return invoke("export_rulesets", { path });
+}
+
+export async function openInExplorer(path: string): Promise<void> {
+  return invoke("open_in_explorer", { path });
+}
+
+export async function listSourceFiles(dir: string): Promise<string[]> {
+  return invoke<string[]>("list_source_files", { dir });
 }

@@ -1,9 +1,9 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
     Filo 開発環境セットアップスクリプト (Windows)
 .DESCRIPTION
-    Rust, Node.js, および依存パッケージをインストールし、
+    mise, Rust, Node.js, および依存パッケージをインストールし、
     開発環境を構築します。管理者権限は不要です。
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
@@ -23,48 +23,50 @@ function Test-Command($cmd) {
 }
 
 # -------------------------------------------------------
-# 1. Rust
+# 1. mise
+# -------------------------------------------------------
+Write-Step "mise のチェック"
+
+if (Test-Command "mise") {
+    $miseVersion = mise v
+    Write-Host "  既にインストール済み: mise $miseVersion" -ForegroundColor Green
+} else {
+    Write-Host "  mise をインストールします..."
+    winget install jdx.mise
+
+    # PATH を追加
+    $env:PATH = "$env:PATH;$env:LOCALAPPDATA\mise\shims"
+
+    # Powershellのprofile追記
+    if ((Test-Path $PROFILE) -eq "False") {
+        $targetPath = Split-Path -Parent $PROFILE
+        New-Item -ItemType Directory -Path $targetPath -Force
+    }
+
+    $activate = "(&mise activate pwsh) | Out-String | Invoke-Expression"
+    Write-Output $activate | Add-Content $PROFILE -Encoding Default
+
+    $miseVersion = mise v
+    Write-Host "  インストール完了: mise $miseVersion" -ForegroundColor Green
+}
+
+
+# -------------------------------------------------------
+# 2. Rust & Node.js (mise 経由)
 # -------------------------------------------------------
 Write-Step "Rust のチェック"
 
-if (Test-Command "rustc") {
+if ((Test-Command "rustc") -And (Test-Command "node")) {
     $rustVersion = rustc --version
     Write-Host "  既にインストール済み: $rustVersion" -ForegroundColor Green
-} else {
-    Write-Host "  Rust をインストールします..."
-    $rustupInit = "$env:TEMP\rustup-init.exe"
-    Invoke-WebRequest -Uri "https://win.rustup.rs/x86_64" -OutFile $rustupInit
-    & $rustupInit -y --default-toolchain stable
-    Remove-Item $rustupInit -ErrorAction SilentlyContinue
-
-    # PATH を更新
-    $cargoPath = "$env:USERPROFILE\.cargo\bin"
-    $env:PATH = "$cargoPath;$env:PATH"
-
-    $rustVersion = rustc --version
-    Write-Host "  インストール完了: $rustVersion" -ForegroundColor Green
-}
-
-# -------------------------------------------------------
-# 2. Node.js (fnm 経由)
-# -------------------------------------------------------
-Write-Step "Node.js のチェック"
-
-if (Test-Command "node") {
     $nodeVersion = node --version
     Write-Host "  既にインストール済み: Node $nodeVersion" -ForegroundColor Green
 } else {
-    if (-not (Test-Command "fnm")) {
-        Write-Host "  fnm をインストールします..."
-        cargo install fnm
-    }
+    Write-Host "  Rust & Node.js をインストールします..."
+    mise install
 
-    # fnm の環境変数を設定
-    fnm env --use-on-cd --shell power-shell | Out-String | Invoke-Expression
-
-    Write-Host "  Node.js LTS をインストールします..."
-    fnm install --lts
-    fnm use lts-latest
+    $rustVersion = rustc --version
+    Write-Host "  インストール完了: $rustVersion" -ForegroundColor Green
 
     $nodeVersion = node --version
     Write-Host "  インストール完了: Node $nodeVersion" -ForegroundColor Green
@@ -106,7 +108,7 @@ Write-Host "======================================" -ForegroundColor Green
 Write-Host "  セットアップ完了！" -ForegroundColor Green
 Write-Host "======================================" -ForegroundColor Green
 Write-Host ""
-Write-Host "  開発サーバの起動:  scripts\dev.bat"
-Write-Host "  ビルド:            scripts\build.bat"
-Write-Host "  テスト:            scripts\test.bat"
+Write-Host "  開発サーバの起動:  npm run tauri dev"
+Write-Host "  ビルド:            npm run tauri build"
+Write-Host "  テスト:            npm run test:all"
 Write-Host ""

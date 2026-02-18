@@ -1,19 +1,27 @@
 {
   "name": "filo",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:tauri": "tauri dev",
     "build": "tsc && vite build",
+    "build:tauri": "tauri build",
     "preview": "vite preview",
     "tauri": "tauri",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:unit": "vitest run",
+    "test:rust": "cargo test --lib --manifest-path src-tauri/Cargo.toml",
+    "test:all": "npm run test:rust && npm run test:unit",
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,json}\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,json}\""
+    "format:rust": "cargo fmt --manifest-path src-tauri/Cargo.toml",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,json}\"",
+    "format:all": "npm run format && npm run format:rust",
+    "clean:rust": "cargo clean --manifest-path src-tauri/Cargo.toml"
   },
   "lint-staged": {
     "src/**/*.{ts,tsx}": [

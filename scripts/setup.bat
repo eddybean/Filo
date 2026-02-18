@@ -1,4 +1,5 @@
 @echo off
+chcp 65001 > nul
 REM Filo 開発環境セットアップ (Windows)
 REM PowerShell スクリプトを呼び出すラッパー
 echo.
