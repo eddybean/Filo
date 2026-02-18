@@ -119,7 +119,7 @@ pub fn execute_all() -> Result<Vec<ExecutionResult>, String> {
         .rulesets
         .iter()
         .filter(|r| r.enabled)
-        .map(|r| engine::execute_ruleset(r))
+        .map(engine::execute_ruleset)
         .collect();
 
     Ok(results)
