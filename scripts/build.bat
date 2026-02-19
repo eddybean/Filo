@@ -1,4 +1,5 @@
 @echo off
+chcp 65001 > nul
 REM Filo プロダクションビルド
 call "%~dp0_paths.bat"
 cd /d "%~dp0.."

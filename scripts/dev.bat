@@ -1,4 +1,5 @@
 @echo off
+chcp 65001 > nul
 REM Filo 開発サーバ起動
 call "%~dp0_paths.bat"
 cd /d "%~dp0.."

@@ -1,4 +1,5 @@
 @echo off
+chcp 65001 > nul
 REM Filo クリーンアップ（ビルド成果物・中間生成物の削除）
 call "%~dp0_paths.bat"
 cd /d "%~dp0.."
