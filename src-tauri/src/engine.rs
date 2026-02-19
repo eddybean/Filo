@@ -573,4 +573,86 @@ mod tests {
         let msg = classify_io_error(&e);
         assert!(msg.contains("Operation failed"), "got: {}", msg);
     }
+
+    #[test]
+    fn test_classify_io_error_not_found() {
+        let e = io::Error::new(io::ErrorKind::NotFound, "not found");
+        let msg = classify_io_error(&e);
+        assert!(msg.contains("File not found"), "got: {}", msg);
+    }
+
+    #[test]
+    fn test_classify_io_error_cross_device() {
+        let e = io::Error::new(io::ErrorKind::CrossesDevices, "cross device");
+        let msg = classify_io_error(&e);
+        assert!(msg.contains("Cross-device"), "got: {}", msg);
+    }
+
+    #[test]
+    fn test_copy_and_verify_empty_file() {
+        let src_dir = tempfile::tempdir().unwrap();
+        let dst_dir = tempfile::tempdir().unwrap();
+        let src = src_dir.path().join("empty.txt");
+        let dst = dst_dir.path().join("empty.txt");
+
+        fs::write(&src, b"").unwrap();
+        copy_and_verify(&src, &dst).unwrap();
+
+        assert_eq!(fs::metadata(&dst).unwrap().len(), 0);
+    }
+
+    // fs::copy が失敗する（dest の親ディレクトリが存在しない）ときに
+    // dest の残骸が残らないことを確認する
+    #[test]
+    fn test_copy_and_verify_cleans_up_when_dest_parent_missing() {
+        let src_dir = tempfile::tempdir().unwrap();
+        let src = src_dir.path().join("file.txt");
+        fs::write(&src, "data").unwrap();
+
+        // 存在しない中間ディレクトリを含む dest パス → fs::copy が失敗する
+        let dst = src_dir.path().join("nonexistent_subdir").join("file.txt");
+
+        let result = copy_and_verify(&src, &dst);
+        assert!(result.is_err());
+        assert!(!dst.exists(), "partial dest should not exist");
+        // src は安全に残っていること
+        assert!(src.exists(), "src must be preserved on copy failure");
+    }
+
+    #[test]
+    fn test_move_file_propagates_non_cross_device_error() {
+        // src が存在しない場合、rename が NotFound で失敗し、
+        // copy_and_verify にフォールバックせずそのままエラーを返す
+        let dir = tempfile::tempdir().unwrap();
+        let src = dir.path().join("nonexistent.txt");
+        let dst = dir.path().join("dst.txt");
+
+        let result = move_file(&src, &dst);
+        assert!(result.is_err());
+        // フォールバックで copy が試みられていないので dst は存在しない
+        assert!(!dst.exists(), "dst must not be created on move failure");
+    }
+
+    #[test]
+    fn test_execute_ruleset_partial_failure_status() {
+        let src = tempfile::tempdir().unwrap();
+        let dst = tempfile::tempdir().unwrap();
+
+        // 成功ファイル
+        fs::write(src.path().join("ok.txt"), "content").unwrap();
+        // 同名ファイルが宛先に存在しかつ overwrite=true で上書き → 成功
+        // 失敗を作るには dest の中にサブディレクトリと同名を置く（NotFoundにならないよう）
+        // 宛先に同名のディレクトリを作ると、ファイルを上書きしようとして失敗する
+        fs::create_dir(dst.path().join("fail.txt")).unwrap();
+        fs::write(src.path().join("fail.txt"), "content").unwrap();
+
+        let mut ruleset = create_test_ruleset(src.path(), dst.path());
+        ruleset.overwrite = true;
+
+        let result = execute_ruleset(&ruleset, |_| {});
+
+        assert_eq!(result.status, ExecutionStatus::PartialFailure);
+        assert_eq!(result.succeeded.len(), 1);
+        assert_eq!(result.errors.len(), 1);
+    }
 }
