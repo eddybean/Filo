@@ -23,8 +23,8 @@
     "title": "ルールセット編集",
     "titleCreate": "ルールセット作成",
     "name": "名前",
-    "sourceDir": "移動元",
-    "destinationDir": "移動先",
+    "sourceDir": "対象フォルダ",
+    "destinationDir": "保存先フォルダ",
     "action": "アクション",
     "overwrite": "同名ファイルを上書きする",
     "filters": "フィルタ条件",
@@ -45,8 +45,8 @@
     "cancel": "キャンセル",
     "validation": {
       "nameRequired": "名前を入力してください",
-      "sourceDirRequired": "移動元フォルダを指定してください",
-      "destinationDirRequired": "移動先フォルダを指定してください",
+      "sourceDirRequired": "対象フォルダを指定してください",
+      "destinationDirRequired": "保存先フォルダを指定してください",
       "filterRequired": "フィルタ条件を1つ以上指定してください"
     }
   },

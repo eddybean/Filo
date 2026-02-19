@@ -130,8 +130,8 @@ export function RulesetEditDialog({
       data-testid="edit-dialog"
       className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50 backdrop-blur-sm"
     >
-      <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto border border-slate-200 dark:border-slate-700/60">
-        <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+      <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden border border-slate-200 dark:border-slate-700/60">
+        <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between flex-none">
           <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
             {isNew ? t("editor.titleCreate") : t("editor.title")}
           </h2>
@@ -145,7 +145,7 @@ export function RulesetEditDialog({
           </button>
         </div>
 
-        <div className="px-5 py-4 space-y-4">
+        <div className="px-5 py-4 space-y-4 overflow-y-auto flex-1">
           {errors.length > 0 && (
             <div
               data-testid="validation-errors"
@@ -186,7 +186,7 @@ export function RulesetEditDialog({
             </div>
             <button
               onClick={selectSource}
-              className="self-end px-2.5 py-1.5 border border-slate-200 dark:border-slate-700 rounded-md hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors"
+              className="self-end px-2.5 py-1.5 border border-slate-200 dark:border-slate-700 rounded-md hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors text-sm leading-normal"
             >
               📁
             </button>
@@ -205,7 +205,7 @@ export function RulesetEditDialog({
             </div>
             <button
               onClick={selectDest}
-              className="self-end px-2.5 py-1.5 border border-slate-200 dark:border-slate-700 rounded-md hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors"
+              className="self-end px-2.5 py-1.5 border border-slate-200 dark:border-slate-700 rounded-md hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors text-sm leading-normal"
             >
               📁
             </button>
@@ -415,7 +415,7 @@ export function RulesetEditDialog({
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 px-5 py-4 border-t border-slate-200 dark:border-slate-800">
+        <div className="flex justify-end gap-2 px-5 py-4 border-t border-slate-200 dark:border-slate-800 flex-none">
           <button
             data-testid="btn-cancel"
             onClick={handleClose}
