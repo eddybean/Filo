@@ -24,9 +24,6 @@ Filo はユーザ定義のルールセットに基づいてファイルを移動
 ## Build & Run Commands
 
 ```bash
-# Linux/macOS: 環境変数の読み込み（各シェルセッションで必要）
-export PATH="$HOME/.cargo/bin:$PATH" && eval "$($HOME/.cargo/bin/fnm env)"
-
 # Rust バックエンドテスト
 cargo test --lib --manifest-path src-tauri/Cargo.toml
 
@@ -123,12 +120,6 @@ npx vitest run
 - 全テストが通過したら結果をユーザーに報告する
 - 失敗したら原因を分析して修正し、再度実行する（最大3回）
 - テストが存在しない変更（ドキュメント修正等）は省略してよい
-
-### 開発ログの記録
-
-- 実行したコマンドの履歴と結果を `docs/DEVLOG.md` に記録する
-- 各フェーズの開始・完了時にログを更新する
-- エラーが発生した場合はその内容と解決方法も記録する
 
 # セッション引き継ぎ
 
