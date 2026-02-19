@@ -43,5 +43,11 @@
       "Bash(npm install *)",
       "Bash(npm uninstall *)"
     ]
+  },
+  "enabledPlugins": {
+    "frontend-design@claude-plugins-official": true,
+    "code-review@claude-plugins-official": true,
+    "github@claude-plugins-official": true,
+    "feature-dev@claude-plugins-official": true
   }
 }
