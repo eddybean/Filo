@@ -34,6 +34,17 @@ function App() {
   const [executing, setExecuting] = useState(false);
   const [executingFile, setExecutingFile] = useState<string | null>(null);
   const [executingRuleset, setExecutingRuleset] = useState<string | null>(null);
+  const [darkMode, setDarkMode] = useState<boolean>(() => {
+    return localStorage.getItem("filo-dark") === "true";
+  });
+
+  const toggleDarkMode = useCallback(() => {
+    setDarkMode((prev) => {
+      const next = !prev;
+      localStorage.setItem("filo-dark", String(next));
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     fetchRulesets();
@@ -171,19 +182,24 @@ function App() {
   const enabledCount = rulesets.filter((r) => r.enabled).length;
 
   return (
-    <main className="flex flex-col h-screen bg-gray-50">
+    <main
+      className={`flex flex-col h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200${darkMode ? " dark" : ""}`}
+    >
       <Toolbar
         onCreateNew={() => setEditingRuleset(null)}
         onExecuteAll={handleExecuteAll}
         onImport={handleImport}
         onExport={handleExport}
         executing={executing}
+        darkMode={darkMode}
+        onToggleDarkMode={toggleDarkMode}
       />
 
       <div className="flex-1 overflow-y-auto">
         {rulesets.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-gray-400 text-sm">
-            {t("toolbar.create")}
+          <div className="flex flex-col items-center justify-center h-full gap-3 text-slate-400 dark:text-slate-600">
+            <div className="text-4xl opacity-40">📂</div>
+            <p className="text-sm">{t("toolbar.create")}</p>
           </div>
         ) : (
           <RulesetList
@@ -199,12 +215,12 @@ function App() {
       </div>
 
       {storeError && (
-        <div className="px-3 py-2 bg-red-50 border-t border-red-200 text-xs text-red-700">
+        <div className="px-4 py-2 bg-red-50 dark:bg-red-900/20 border-t border-red-200 dark:border-red-800/60 text-xs text-red-700 dark:text-red-400">
           {storeError}
         </div>
       )}
 
-      <div className="px-3 py-2 border-t bg-white text-xs text-gray-500">
+      <div className="px-4 py-2 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs text-slate-500 dark:text-slate-500">
         {t("app.statusBar", { total: rulesets.length, enabled: enabledCount })}
       </div>
 

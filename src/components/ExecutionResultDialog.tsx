@@ -14,23 +14,28 @@ export function ExecutionResultDialog({ results, onClose }: ExecutionResultDialo
   const { t } = useTranslation();
 
   return (
-    <div data-testid="result-dialog" className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] overflow-y-auto">
-        <div className="p-4 border-b">
-          <h2 className="text-lg font-semibold">{t("result.title")}</h2>
+    <div
+      data-testid="result-dialog"
+      className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50 backdrop-blur-sm"
+    >
+      <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-y-auto border border-slate-200 dark:border-slate-700/60">
+        <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800">
+          <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+            {t("result.title")}
+          </h2>
         </div>
 
-        <div className="p-4 space-y-6">
+        <div className="px-5 py-4 space-y-6">
           {results.map((result) => (
             <SingleResult key={result.ruleset_id} result={result} />
           ))}
         </div>
 
-        <div className="flex justify-end p-4 border-t">
+        <div className="flex justify-end px-5 py-4 border-t border-slate-200 dark:border-slate-800">
           <button
             data-testid="btn-result-close"
             onClick={onClose}
-            className="px-4 py-1.5 bg-gray-600 text-white rounded text-sm hover:bg-gray-700"
+            className="px-4 py-1.5 bg-slate-700 hover:bg-slate-600 dark:bg-slate-700 dark:hover:bg-slate-600 text-white rounded-md text-sm font-medium transition-colors"
           >
             {t("result.close")}
           </button>
@@ -75,10 +80,12 @@ function SingleResult({ result }: { result: ExecutionResult }) {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between mb-3">
         <div>
-          <span className="font-medium">{result.ruleset_name}</span>
-          <span className="text-xs text-gray-500 ml-2">
+          <span className="font-medium text-slate-900 dark:text-slate-100">
+            {result.ruleset_name}
+          </span>
+          <span className="text-xs text-slate-500 dark:text-slate-400 ml-2">
             {actionLabel} | {statusLabel}
           </span>
         </div>
@@ -86,7 +93,7 @@ function SingleResult({ result }: { result: ExecutionResult }) {
           <button
             data-testid="btn-undo-all"
             onClick={handleUndoAll}
-            className="text-xs px-2 py-1 border border-orange-300 text-orange-600 rounded hover:bg-orange-50"
+            className="text-xs px-2.5 py-1 border border-amber-300 dark:border-amber-700 text-amber-600 dark:text-amber-400 rounded-md hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
           >
             {t("result.undoAll")}
           </button>
@@ -94,36 +101,39 @@ function SingleResult({ result }: { result: ExecutionResult }) {
       </div>
 
       {/* Summary */}
-      <div className="flex gap-4 text-sm mb-2">
-        <span className="text-green-600">
+      <div className="flex gap-4 text-sm mb-3">
+        <span className="text-emerald-600 dark:text-emerald-400">
           ✓ {t("result.succeeded")}:{" "}
           {t("result.items", { count: result.succeeded.length })}
         </span>
-        <span className="text-yellow-600">
+        <span className="text-amber-600 dark:text-amber-400">
           ⚠ {t("result.skipped")}: {t("result.items", { count: result.skipped.length })}
         </span>
-        <span className="text-red-600">
+        <span className="text-red-600 dark:text-red-400">
           ✗ {t("result.errors")}: {t("result.items", { count: result.errors.length })}
         </span>
       </div>
 
       {/* Detail list */}
-      <div className="border rounded divide-y text-xs">
+      <div className="border border-slate-200 dark:border-slate-700/60 rounded-lg divide-y divide-slate-100 dark:divide-slate-800 text-xs overflow-hidden">
         {result.succeeded.map((file) => {
           const status = undoStatuses[file.source_path];
           return (
-            <div key={file.source_path} className="flex items-center gap-2 px-3 py-2">
+            <div
+              key={file.source_path}
+              className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-900"
+            >
               {status === "undone" ? (
-                <span className="text-orange-500">↩</span>
+                <span className="text-amber-500">↩</span>
               ) : (
-                <span className="text-green-500">✓</span>
+                <span className="text-emerald-500">✓</span>
               )}
               <div className="flex-1 min-w-0">
-                <div className="font-medium truncate">
+                <div className="font-medium text-slate-800 dark:text-slate-200 truncate">
                   {status === "undone" ? t("result.undone") : file.filename}
                 </div>
                 {status !== "undone" && (
-                  <div className="text-gray-400 truncate">
+                  <div className="text-slate-400 dark:text-slate-600 truncate font-mono">
                     {file.source_path} → {file.destination_path}
                   </div>
                 )}
@@ -131,24 +141,29 @@ function SingleResult({ result }: { result: ExecutionResult }) {
               {isMove && status !== "undone" && (
                 <button
                   onClick={() => handleUndoFile(file)}
-                  className="text-orange-500 hover:text-orange-700 whitespace-nowrap"
+                  className="text-amber-500 hover:text-amber-600 dark:text-amber-400 dark:hover:text-amber-300 whitespace-nowrap transition-colors"
                 >
                   ↩ {t("result.undoFile")}
                 </button>
               )}
               {status === "error" && (
-                <span className="text-red-500">{t("result.undoError")}</span>
+                <span className="text-red-500 dark:text-red-400">{t("result.undoError")}</span>
               )}
             </div>
           );
         })}
 
         {result.skipped.map((file) => (
-          <div key={file.source_path} className="flex items-center gap-2 px-3 py-2">
-            <span className="text-yellow-500">⚠</span>
+          <div
+            key={file.source_path}
+            className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-900"
+          >
+            <span className="text-amber-500">⚠</span>
             <div className="flex-1 min-w-0">
-              <div className="font-medium truncate">{file.filename}</div>
-              <div className="text-gray-400 truncate">
+              <div className="font-medium text-slate-800 dark:text-slate-200 truncate">
+                {file.filename}
+              </div>
+              <div className="text-slate-400 dark:text-slate-600 truncate">
                 {file.reason ?? t("result.skipReason")}
               </div>
             </div>
@@ -156,11 +171,16 @@ function SingleResult({ result }: { result: ExecutionResult }) {
         ))}
 
         {result.errors.map((file) => (
-          <div key={file.source_path} className="flex items-center gap-2 px-3 py-2">
+          <div
+            key={file.source_path}
+            className="flex items-center gap-2 px-3 py-2 bg-red-50/50 dark:bg-red-900/10"
+          >
             <span className="text-red-500">✗</span>
             <div className="flex-1 min-w-0">
-              <div className="font-medium truncate">{file.filename}</div>
-              <div className="text-red-400 truncate">{file.reason}</div>
+              <div className="font-medium text-slate-800 dark:text-slate-200 truncate">
+                {file.filename}
+              </div>
+              <div className="text-red-500 dark:text-red-400 truncate">{file.reason}</div>
             </div>
           </div>
         ))}

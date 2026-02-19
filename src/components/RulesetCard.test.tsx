@@ -55,9 +55,9 @@ describe("RulesetCard", () => {
     expect(onDelete).toHaveBeenCalledWith(defaultRuleset.id);
   });
 
-  it("enabled=false のカードは opacity-60 クラスを持つ", () => {
+  it("enabled=false のカードは opacity-50 クラスを持つ", () => {
     renderCard({ ruleset: disabledRuleset });
-    expect(screen.getByTestId("ruleset-card")).toHaveClass("opacity-60");
+    expect(screen.getByTestId("ruleset-card")).toHaveClass("opacity-50");
   });
 
   it("action=copy のバッジは 'コピー' と表示される", () => {
