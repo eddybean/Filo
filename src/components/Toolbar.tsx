@@ -24,9 +24,9 @@ export function Toolbar({
   return (
     <div
       data-testid="toolbar"
-      className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm"
+      className="flex items-center gap-2 px-4 py-3 border-b border-slate-200/70 dark:border-slate-800/60 bg-white/85 backdrop-blur-xl backdrop-saturate-180 dark:bg-slate-900/85 shadow-sm"
     >
-      <span className="text-sm font-bold tracking-wide text-slate-700 dark:text-slate-200 mr-1 select-none">
+      <span className="text-sm font-bold tracking-wide bg-gradient-to-r from-blue-600 to-sky-500 bg-clip-text text-transparent mr-1 select-none">
         Filo
       </span>
 
@@ -35,7 +35,7 @@ export function Toolbar({
       <button
         data-testid="toolbar-create"
         onClick={onCreateNew}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 dark:bg-blue-500 dark:hover:bg-blue-400 text-white rounded-md text-sm font-medium transition-colors duration-150 shadow-sm"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-b from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 dark:from-blue-500 dark:to-blue-600 dark:hover:from-blue-400 dark:hover:to-blue-500 text-white rounded-lg text-sm font-medium transition-all duration-150 shadow-sm shadow-blue-500/20"
       >
         <svg
           className="w-3.5 h-3.5"
@@ -57,7 +57,7 @@ export function Toolbar({
         data-testid="toolbar-execute-all"
         onClick={onExecuteAll}
         disabled={executing}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white rounded-md text-sm font-medium transition-colors duration-150 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-b from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 dark:from-emerald-500 dark:to-emerald-600 dark:hover:from-emerald-400 dark:hover:to-emerald-500 text-white rounded-lg text-sm font-medium transition-all duration-150 shadow-sm shadow-emerald-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
       >
         <svg
           className="w-3.5 h-3.5"
@@ -80,7 +80,7 @@ export function Toolbar({
       <button
         data-testid="toolbar-import"
         onClick={onImport}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-md text-sm text-slate-600 dark:text-slate-300 transition-colors duration-150"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg text-sm text-slate-600 dark:text-slate-300 transition-colors duration-150"
       >
         <svg
           className="w-3.5 h-3.5"
@@ -101,7 +101,7 @@ export function Toolbar({
       <button
         data-testid="toolbar-export"
         onClick={onExport}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-md text-sm text-slate-600 dark:text-slate-300 transition-colors duration-150"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg text-sm text-slate-600 dark:text-slate-300 transition-colors duration-150"
       >
         <svg
           className="w-3.5 h-3.5"
@@ -123,7 +123,7 @@ export function Toolbar({
         <button
           onClick={onToggleDarkMode}
           title={darkMode ? "ライトモードに切り替え" : "ダークモードに切り替え"}
-          className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors duration-150"
+          className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors duration-150"
         >
           {darkMode ? (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

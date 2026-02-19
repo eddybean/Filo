@@ -16,9 +16,9 @@ export function ExecutionResultDialog({ results, onClose }: ExecutionResultDialo
   return (
     <div
       data-testid="result-dialog"
-      className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50 backdrop-blur-sm"
+      className="fixed inset-0 bg-black/40 dark:bg-black/60 flex items-center justify-center z-50 backdrop-blur-[6px]"
     >
-      <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-y-auto border border-slate-200 dark:border-slate-700/60">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.25),0_8px_16px_rgba(0,0,0,0.10)] w-full max-w-2xl max-h-[80vh] overflow-y-auto border border-slate-200 dark:border-slate-700/60">
         <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800">
           <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
             {t("result.title")}
@@ -35,7 +35,7 @@ export function ExecutionResultDialog({ results, onClose }: ExecutionResultDialo
           <button
             data-testid="btn-result-close"
             onClick={onClose}
-            className="px-4 py-1.5 bg-slate-700 hover:bg-slate-600 dark:bg-slate-700 dark:hover:bg-slate-600 text-white rounded-md text-sm font-medium transition-colors"
+            className="px-4 py-1.5 bg-slate-700 hover:bg-slate-600 dark:bg-slate-700 dark:hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition-colors"
           >
             {t("result.close")}
           </button>
@@ -93,7 +93,7 @@ function SingleResult({ result }: { result: ExecutionResult }) {
           <button
             data-testid="btn-undo-all"
             onClick={handleUndoAll}
-            className="text-xs px-2.5 py-1 border border-amber-300 dark:border-amber-700 text-amber-600 dark:text-amber-400 rounded-md hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
+            className="text-xs px-2.5 py-1 border border-amber-300 dark:border-amber-700 text-amber-600 dark:text-amber-400 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
           >
             {t("result.undoAll")}
           </button>
@@ -104,18 +104,20 @@ function SingleResult({ result }: { result: ExecutionResult }) {
       <div className="flex gap-4 text-sm mb-3">
         <span className="text-emerald-600 dark:text-emerald-400">
           ✓ {t("result.succeeded")}:{" "}
-          {t("result.items", { count: result.succeeded.length })}
+          <span className="font-semibold">{t("result.items", { count: result.succeeded.length })}</span>
         </span>
         <span className="text-amber-600 dark:text-amber-400">
-          ⚠ {t("result.skipped")}: {t("result.items", { count: result.skipped.length })}
+          ⚠ {t("result.skipped")}:{" "}
+          <span className="font-semibold">{t("result.items", { count: result.skipped.length })}</span>
         </span>
         <span className="text-red-600 dark:text-red-400">
-          ✗ {t("result.errors")}: {t("result.items", { count: result.errors.length })}
+          ✗ {t("result.errors")}:{" "}
+          <span className="font-semibold">{t("result.items", { count: result.errors.length })}</span>
         </span>
       </div>
 
       {/* Detail list */}
-      <div className="border border-slate-200 dark:border-slate-700/60 rounded-lg divide-y divide-slate-100 dark:divide-slate-800 text-xs overflow-hidden">
+      <div className="border border-slate-200 dark:border-slate-700/60 rounded-xl divide-y divide-slate-100 dark:divide-slate-800 text-xs overflow-hidden">
         {result.succeeded.map((file) => {
           const status = undoStatuses[file.source_path];
           return (

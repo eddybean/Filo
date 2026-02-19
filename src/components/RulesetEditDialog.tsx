@@ -119,7 +119,7 @@ export function RulesetEditDialog({
   }
 
   const inputClass =
-    "w-full px-3 py-1.5 border border-slate-200 dark:border-slate-700 rounded-md text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-blue-400/40 focus:border-blue-400 dark:focus:border-blue-500 transition-colors";
+    "w-full px-3 py-1.5 border border-slate-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-blue-400/40 focus:border-blue-400 dark:focus:border-blue-500 transition-colors";
 
   const labelClass = "block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1";
   const labelXsClass =
@@ -128,9 +128,9 @@ export function RulesetEditDialog({
   return (
     <div
       data-testid="edit-dialog"
-      className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50 backdrop-blur-sm"
+      className="fixed inset-0 bg-black/40 dark:bg-black/60 flex items-center justify-center z-50 backdrop-blur-[6px]"
     >
-      <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden border border-slate-200 dark:border-slate-700/60">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.25),0_8px_16px_rgba(0,0,0,0.10)] w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden border border-slate-200 dark:border-slate-700/60">
         <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between flex-none">
           <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
             {isNew ? t("editor.titleCreate") : t("editor.title")}
@@ -139,7 +139,7 @@ export function RulesetEditDialog({
             data-testid="btn-close"
             onClick={handleClose}
             aria-label={t("editor.close")}
-            className="w-7 h-7 flex items-center justify-center rounded-md text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-lg leading-none"
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-lg leading-none"
           >
             ×
           </button>
@@ -149,7 +149,7 @@ export function RulesetEditDialog({
           {errors.length > 0 && (
             <div
               data-testid="validation-errors"
-              className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/60 rounded-lg p-3 text-sm text-red-700 dark:text-red-400 space-y-0.5"
+              className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/60 rounded-xl p-3 text-sm text-red-700 dark:text-red-400 space-y-0.5"
             >
               {errors.map((e, i) => (
                 <div key={i} className="flex items-start gap-1.5">
@@ -186,9 +186,12 @@ export function RulesetEditDialog({
             </div>
             <button
               onClick={selectSource}
-              className="self-end px-2.5 py-1.5 border border-slate-200 dark:border-slate-700 rounded-md hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors text-sm leading-normal"
+              className="self-end px-2.5 py-1.5 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors"
             >
-              📁
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                  d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
+              </svg>
             </button>
           </div>
 
@@ -205,9 +208,12 @@ export function RulesetEditDialog({
             </div>
             <button
               onClick={selectDest}
-              className="self-end px-2.5 py-1.5 border border-slate-200 dark:border-slate-700 rounded-md hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors text-sm leading-normal"
+              className="self-end px-2.5 py-1.5 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors"
             >
-              📁
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                  d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
+              </svg>
             </button>
           </div>
 
@@ -248,7 +254,7 @@ export function RulesetEditDialog({
           </div>
 
           {/* Filters */}
-          <div className="border-t border-slate-200 dark:border-slate-800 pt-4">
+          <div className="pt-4 mt-1 border-t border-slate-100 dark:border-slate-800/70">
             <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
               {t("editor.filters")}
             </h3>
@@ -282,12 +288,12 @@ export function RulesetEditDialog({
                     e.key === "Enter" && (e.preventDefault(), addExtension())
                   }
                   placeholder=".jpg"
-                  className="flex-1 px-2 py-1 border border-slate-200 dark:border-slate-700 rounded-md text-xs bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-blue-400/40 focus:border-blue-400 dark:focus:border-blue-500 font-mono transition-colors"
+                  className="flex-1 px-2 py-1 border border-slate-200 dark:border-slate-700 rounded-lg text-xs bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-blue-400/40 focus:border-blue-400 dark:focus:border-blue-500 font-mono transition-colors"
                 />
                 <button
                   data-testid="btn-extension-add"
                   onClick={addExtension}
-                  className="px-2.5 py-1 border border-slate-200 dark:border-slate-700 rounded-md text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                  className="px-2.5 py-1 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                 >
                   {t("editor.extensionAdd")}
                 </button>
@@ -353,7 +359,7 @@ export function RulesetEditDialog({
                   }
                 }}
                 placeholder={t("editor.pattern")}
-                className="w-full px-2 py-1 border border-slate-200 dark:border-slate-700 rounded-md text-xs bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-blue-400/40 focus:border-blue-400 dark:focus:border-blue-500 font-mono transition-colors"
+                className="w-full px-2 py-1 border border-slate-200 dark:border-slate-700 rounded-lg text-xs bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-blue-400/40 focus:border-blue-400 dark:focus:border-blue-500 font-mono transition-colors"
               />
             </div>
 
@@ -382,7 +388,7 @@ export function RulesetEditDialog({
                           });
                         }
                       }}
-                      className="w-full px-2 py-1 border border-slate-200 dark:border-slate-700 rounded-md text-xs bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-blue-400/40 focus:border-blue-400 dark:focus:border-blue-500 transition-colors"
+                      className="w-full px-2 py-1 border border-slate-200 dark:border-slate-700 rounded-lg text-xs bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-blue-400/40 focus:border-blue-400 dark:focus:border-blue-500 transition-colors"
                     />
                   </div>
                   <div className="flex-1">
@@ -406,7 +412,7 @@ export function RulesetEditDialog({
                           });
                         }
                       }}
-                      className="w-full px-2 py-1 border border-slate-200 dark:border-slate-700 rounded-md text-xs bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-blue-400/40 focus:border-blue-400 dark:focus:border-blue-500 transition-colors"
+                      className="w-full px-2 py-1 border border-slate-200 dark:border-slate-700 rounded-lg text-xs bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-blue-400/40 focus:border-blue-400 dark:focus:border-blue-500 transition-colors"
                     />
                   </div>
                 </div>
@@ -419,14 +425,14 @@ export function RulesetEditDialog({
           <button
             data-testid="btn-cancel"
             onClick={handleClose}
-            className="px-4 py-1.5 border border-slate-200 dark:border-slate-700 rounded-md text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+            className="px-4 py-1.5 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
           >
             {t("editor.cancel")}
           </button>
           <button
             data-testid="btn-save"
             onClick={handleSave}
-            className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 dark:bg-blue-500 dark:hover:bg-blue-400 text-white rounded-md text-sm font-medium transition-colors shadow-sm"
+            className="px-4 py-1.5 bg-gradient-to-b from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 text-white rounded-lg text-sm font-medium transition-all duration-150 shadow-sm shadow-blue-500/20"
           >
             {t("editor.save")}
           </button>

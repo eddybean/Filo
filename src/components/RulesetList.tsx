@@ -92,7 +92,7 @@ export function RulesetList({
         items={rulesets.map((r) => r.id)}
         strategy={verticalListSortingStrategy}
       >
-        <div className="flex flex-col gap-2 p-3">
+        <div className="flex flex-col gap-2.5 p-4">
           {rulesets.map((ruleset, index) => (
             <SortableItem
               key={ruleset.id}

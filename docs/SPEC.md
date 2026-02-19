@@ -20,7 +20,8 @@
 | フロントエンド | React 19 + TypeScript |
 | バックエンド | Rust (Tauri v2) |
 | UIライブラリ | Tailwind CSS のみ（外部UIライブラリなし） |
-| スタイリング | Tailwind CSS |
+| スタイリング | Tailwind CSS v4（`@theme` でフォント定義、CSS カスタムスクロールバー） |
+| デザイン方針 | Windows 11 Fluent Design 2.0 準拠（Segoe UI Variable フォント、Mica 風 backdrop-blur）|
 | 状態管理 | Zustand |
 | 国際化 (i18n) | react-i18next |
 | ルールセット保存形式 | YAML |
@@ -165,8 +166,8 @@ rulesets:
 │                                             │
 │  名前:  [画像ファイルを整理            ]    │
 │                                             │
-│  対象フォルダ: [C:/Users/user/Downloads   ][📁]  │
-│  保存先フォルダ: [C:/Users/user/Pictures    ][📁]  │
+│  対象フォルダ: [C:/Users/user/Downloads   ][🗁]  │
+│  保存先フォルダ: [C:/Users/user/Pictures    ][🗁]  │
 │                                             │
 │  アクション: (●) 移動  (○) コピー            │
 │  ☐ 同名ファイルを上書きする                  │
@@ -200,7 +201,7 @@ rulesets:
 |------|------|
 | 閉じるボタン | ダイアログ右上の × ボタンでダイアログを閉じる |
 | 変更破棄の確認 | × またはキャンセルボタン押下時、入力中の内容がある場合は破棄確認ダイアログを表示。OKのみ閉じる |
-| フォルダ選択 | 対象フォルダ・保存先フォルダの 📁 ボタンでOS標準のフォルダ選択ダイアログを呼び出す |
+| フォルダ選択 | 対象フォルダ・保存先フォルダのフォルダアイコンボタン（SVG）でOS標準のフォルダ選択ダイアログを呼び出す |
 | アクション選択 | 「移動」と「コピー」をラジオボタンで切替 |
 | 拡張子入力 | タグ形式で複数追加・削除が可能 |
 | ファイル名パターン | glob または正規表現を選択してパターンを入力 |
@@ -304,26 +305,55 @@ rulesets:
 
 ツールバーのトグルボタンでライトモード・ダークモードを手動切替できる。設定は `localStorage` に永続化し、次回起動時も引き継がれる。
 
+#### デザイン方針：Fluent Refined
+
+Windows 11 の Fluent Design 2.0 を基調とし、現代的なトレンドを加えたデザイン。
+
+- **フォント**: `"Segoe UI Variable", "Segoe UI"` を優先使用（Windows 11 ネイティブフォント）
+- **ツールバー**: 半透明 + `backdrop-blur` による Mica 風マテリアルエフェクト
+- **ボタン**: グラデーション背景（`from-blue-500 to-blue-600` 等）+ カラーシャドウ
+- **カード**: カスタム `rgba()` シャドウ + ホバー時の微細エレベーション（`-translate-y-0.5`）
+- **ダイアログ**: `rounded-2xl`（16px）の大きめ角丸、重層シャドウ
+- **スクロールバー**: Windows 11 風の 6px 細型（CSS カスタムスクロールバー）
+- **モノスペースフォント**: `"Cascadia Code", "Consolas"` を優先使用
+
 #### カラーパレット（スレートグレー系）
 
 | 要素 | ライトモード | ダークモード |
 |------|------------|------------|
-| ページ背景 | `slate-50` | `slate-950` |
+| ページ背景 | `slate-100` → `slate-50` グラデーション | `slate-950` → `#0f1117` グラデーション |
+| ツールバー背景 | `white/85` + backdrop-blur | `slate-900/85` + backdrop-blur |
+| ステータスバー背景 | `white/80` + backdrop-blur-sm | `slate-900/80` + backdrop-blur-sm |
 | カード / パネル背景 | `white` | `slate-900` |
-| ボーダー | `slate-200` | `slate-700/60` |
+| ダイアログ背景 | `white` | `slate-900` |
+| ボーダー | `slate-200/80` | `slate-700/60` |
 | テキスト（主） | `slate-900` | `slate-100` |
 | テキスト（補助） | `slate-500` | `slate-400` |
 | テキスト（弱） | `slate-400` | `slate-600` |
-| アクセント（プライマリ） | `blue-600` | `blue-500` |
-| アクセント（成功） | `emerald-600` | `emerald-500` |
+| アクセント（プライマリ） | `blue-500` → `blue-600` グラデーション | 同左 |
+| アクセント（成功） | `emerald-500` → `emerald-600` グラデーション | 同左 |
 | アクセント（警告） | `amber-600` | `amber-400` |
 | アクセント（危険） | `red-500` | `red-400` |
+| Move バッジ | `blue-50` → `sky-50` グラデーション | `blue-900/40` → `sky-900/30` グラデーション |
+| Copy バッジ | `violet-50` → `purple-50` グラデーション | `violet-900/40` → `purple-900/30` グラデーション |
+
+#### ボーダー半径
+
+| 要素 | 値 |
+|------|-----|
+| ダイアログ | `rounded-2xl`（16px） |
+| カード | `rounded-xl`（12px） |
+| ボタン | `rounded-lg`（8px） |
+| インプット | `rounded-lg`（8px） |
+| バッジ | `rounded-full` |
 
 #### 実装方式
 
 - Tailwind CSS v4 の `@custom-variant dark (&:where(.dark, .dark *))` を使用
 - `App.tsx` の `<main>` 要素に `.dark` クラスを付与することで全子コンポーネントにダークテーマを伝搬
 - `darkMode` は `App.tsx` の `useState` で管理し、`Toolbar` へプロップスとして渡す
+- `App.css` の `@theme` ブロックでフォントスタックを定義
+- `App.css` の `@layer base` でカスタムスクロールバーを定義
 
 ---
 

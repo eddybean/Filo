@@ -54,9 +54,9 @@ export function RulesetCard({
   return (
     <div
       data-testid="ruleset-card"
-      className={`flex items-center gap-3 px-4 py-3 rounded-lg border transition-all duration-150 ${
+      className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-200 ease-out ${
         ruleset.enabled
-          ? "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700/60 shadow-sm hover:shadow-md hover:border-slate-300 dark:hover:border-slate-600"
+          ? "bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-700/60 shadow-[0_1px_3px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.09),0_2px_4px_rgba(0,0,0,0.05)] hover:-translate-y-0.5 hover:border-slate-300/80 dark:hover:border-slate-600/60"
           : "bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800 opacity-50"
       }`}
     >
@@ -68,7 +68,7 @@ export function RulesetCard({
         className="w-4 h-4 accent-blue-600 dark:accent-blue-400 cursor-pointer flex-shrink-0"
       />
 
-      <span className="text-slate-300 dark:text-slate-600 text-xs w-5 text-center flex-shrink-0 font-mono">
+      <span className="text-slate-200 dark:text-slate-700 text-xs w-4 text-center flex-shrink-0 font-mono">
         {index + 1}
       </span>
 
@@ -84,8 +84,8 @@ export function RulesetCard({
             data-testid="ruleset-action-badge"
             className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${
               ruleset.action === "move"
-                ? "bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400"
-                : "bg-violet-50 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400"
+                ? "bg-gradient-to-r from-blue-50 to-sky-50 dark:from-blue-900/40 dark:to-sky-900/30 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-800/40"
+                : "bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-900/40 dark:to-purple-900/30 text-violet-600 dark:text-violet-400 border border-violet-100 dark:border-violet-800/40"
             }`}
           >
             {actionLabel}
@@ -109,7 +109,7 @@ export function RulesetCard({
           onClick={() => onExecute(ruleset.id)}
           disabled={executing}
           title={t("ruleset.execute")}
-          className="p-1.5 text-emerald-600 dark:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-md disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-150"
+          className="p-1.5 text-emerald-600 dark:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-150"
         >
           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
             <path d="M5 3l14 9-14 9V3z" />
@@ -119,7 +119,7 @@ export function RulesetCard({
           data-testid="ruleset-edit"
           onClick={() => onEdit(ruleset)}
           title={t("ruleset.edit")}
-          className="p-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors duration-150"
+          className="p-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors duration-150"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
@@ -134,7 +134,7 @@ export function RulesetCard({
           data-testid="ruleset-delete"
           onClick={() => onDelete(ruleset.id)}
           title={t("ruleset.delete")}
-          className="p-1.5 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-md transition-colors duration-150"
+          className="p-1.5 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors duration-150"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
@@ -150,7 +150,7 @@ export function RulesetCard({
             data-testid="ruleset-menu"
             onClick={() => setMenuOpen((prev) => !prev)}
             title={t("ruleset.menu")}
-            className="p-1.5 text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors duration-150"
+            className="p-1.5 text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors duration-150"
           >
             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
               <circle cx="5" cy="12" r="2" />
@@ -161,7 +161,7 @@ export function RulesetCard({
           {menuOpen && (
             <div
               data-testid="ruleset-menu-dropdown"
-              className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg z-10 py-1"
+              className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-700 rounded-xl shadow-[0_8px_24px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.08)] z-10 py-1"
             >
               <button
                 data-testid="ruleset-open-source"

@@ -183,7 +183,7 @@ function App() {
 
   return (
     <main
-      className={`flex flex-col h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200${darkMode ? " dark" : ""}`}
+      className={`flex flex-col h-screen bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-950 dark:to-[#0f1117] text-slate-900 dark:text-slate-100 transition-colors duration-200${darkMode ? " dark" : ""}`}
     >
       <Toolbar
         onCreateNew={() => setEditingRuleset(null)}
@@ -197,9 +197,9 @@ function App() {
 
       <div className="flex-1 overflow-y-auto">
         {rulesets.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full gap-3 text-slate-400 dark:text-slate-600">
-            <div className="text-4xl opacity-40">📂</div>
-            <p className="text-sm">{t("toolbar.create")}</p>
+          <div className="flex flex-col items-center justify-center h-full gap-4 text-slate-400 dark:text-slate-600">
+            <div className="text-5xl opacity-30 select-none">📂</div>
+            <p className="text-sm font-medium">{t("toolbar.create")}</p>
           </div>
         ) : (
           <RulesetList
@@ -220,7 +220,7 @@ function App() {
         </div>
       )}
 
-      <div className="px-4 py-2 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs text-slate-500 dark:text-slate-500">
+      <div className="px-4 py-2 border-t border-slate-200/70 dark:border-slate-800/70 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm text-xs text-slate-500 dark:text-slate-500">
         {t("app.statusBar", { total: rulesets.length, enabled: enabledCount })}
       </div>
 
