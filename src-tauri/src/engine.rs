@@ -2,6 +2,7 @@ use crate::filters::matches_filters;
 use crate::ruleset::{Action, Ruleset};
 use serde::{Deserialize, Serialize};
 use std::fs;
+use std::io;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -45,6 +46,50 @@ impl ExecutionResult {
         } else {
             ExecutionStatus::PartialFailure
         }
+    }
+}
+
+fn is_cross_device_error(err: &io::Error) -> bool {
+    err.kind() == io::ErrorKind::CrossesDevices
+}
+
+fn copy_and_verify(src: &Path, dest: &Path) -> io::Result<()> {
+    let expected_len = fs::metadata(src)?.len();
+    let copied = fs::copy(src, dest).map_err(|e| {
+        let _ = fs::remove_file(dest);
+        e
+    })?;
+    if copied != expected_len {
+        let _ = fs::remove_file(dest);
+        return Err(io::Error::new(
+            io::ErrorKind::Other,
+            format!(
+                "Copy incomplete: expected {} bytes, got {} bytes",
+                expected_len, copied
+            ),
+        ));
+    }
+    Ok(())
+}
+
+fn move_file(src: &Path, dest: &Path) -> io::Result<()> {
+    match fs::rename(src, dest) {
+        Ok(()) => Ok(()),
+        Err(e) if is_cross_device_error(&e) => {
+            copy_and_verify(src, dest)?;
+            fs::remove_file(src)
+        }
+        Err(e) => Err(e),
+    }
+}
+
+fn classify_io_error(e: &io::Error) -> String {
+    match e.kind() {
+        io::ErrorKind::PermissionDenied => format!("Permission denied: {}", e),
+        io::ErrorKind::StorageFull => format!("Disk full: {}", e),
+        io::ErrorKind::NotFound => format!("File not found: {}", e),
+        io::ErrorKind::CrossesDevices => format!("Cross-device operation failed: {}", e),
+        _ => format!("Operation failed: {}", e),
     }
 }
 
@@ -164,11 +209,8 @@ pub fn execute_ruleset(ruleset: &Ruleset, on_progress: impl Fn(&str)) -> Executi
 
         // Execute action
         let result = match ruleset.action {
-            Action::Move => fs::rename(&path, &dest_path).or_else(|_| {
-                // rename may fail across filesystems, fallback to copy+delete
-                fs::copy(&path, &dest_path).and_then(|_| fs::remove_file(&path))
-            }),
-            Action::Copy => fs::copy(&path, &dest_path).map(|_| ()),
+            Action::Move => move_file(&path, &dest_path),
+            Action::Copy => copy_and_verify(&path, &dest_path),
         };
 
         match result {
@@ -185,7 +227,7 @@ pub fn execute_ruleset(ruleset: &Ruleset, on_progress: impl Fn(&str)) -> Executi
                     filename,
                     source_path: path,
                     destination_path: Some(dest_path),
-                    reason: Some(format!("Operation failed: {}", e)),
+                    reason: Some(classify_io_error(&e)),
                 });
             }
         }
@@ -220,11 +262,8 @@ pub fn undo_file_move(source_path: &Path, destination_path: &Path) -> Result<(),
         fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {}", e))?;
     }
 
-    fs::rename(destination_path, source_path)
-        .or_else(|_| {
-            fs::copy(destination_path, source_path).and_then(|_| fs::remove_file(destination_path))
-        })
-        .map_err(|e| format!("Failed to undo: {}", e))
+    move_file(destination_path, source_path)
+        .map_err(|e| classify_io_error(&e))
 }
 
 #[cfg(test)]
@@ -460,5 +499,78 @@ mod tests {
 
         let result = undo_file_move(&src_path, &dst_path);
         assert!(result.is_err());
+    }
+
+    // --- ヘルパー関数のユニットテスト ---
+
+    #[test]
+    fn test_is_cross_device_error_true() {
+        let e = io::Error::new(io::ErrorKind::CrossesDevices, "cross device");
+        assert!(is_cross_device_error(&e));
+    }
+
+    #[test]
+    fn test_is_cross_device_error_false() {
+        let e = io::Error::new(io::ErrorKind::PermissionDenied, "permission denied");
+        assert!(!is_cross_device_error(&e));
+    }
+
+    #[test]
+    fn test_copy_and_verify_success() {
+        let src_dir = tempfile::tempdir().unwrap();
+        let dst_dir = tempfile::tempdir().unwrap();
+        let src = src_dir.path().join("file.txt");
+        let dst = dst_dir.path().join("file.txt");
+
+        fs::write(&src, "hello world").unwrap();
+        copy_and_verify(&src, &dst).unwrap();
+
+        assert!(src.exists(), "src should still exist after copy");
+        assert_eq!(fs::read_to_string(&dst).unwrap(), "hello world");
+    }
+
+    #[test]
+    fn test_copy_and_verify_cleans_up_on_error() {
+        let dst_dir = tempfile::tempdir().unwrap();
+        let nonexistent_src = dst_dir.path().join("nonexistent.txt");
+        let dst = dst_dir.path().join("output.txt");
+
+        let result = copy_and_verify(&nonexistent_src, &dst);
+        assert!(result.is_err());
+        assert!(!dst.exists(), "dst should not exist after failed copy");
+    }
+
+    #[test]
+    fn test_move_file_same_device() {
+        let dir = tempfile::tempdir().unwrap();
+        let src = dir.path().join("src.txt");
+        let dst = dir.path().join("dst.txt");
+
+        fs::write(&src, "content").unwrap();
+        move_file(&src, &dst).unwrap();
+
+        assert!(!src.exists(), "src should be gone after move");
+        assert_eq!(fs::read_to_string(&dst).unwrap(), "content");
+    }
+
+    #[test]
+    fn test_classify_io_error_permission_denied() {
+        let e = io::Error::new(io::ErrorKind::PermissionDenied, "denied");
+        let msg = classify_io_error(&e);
+        assert!(msg.contains("Permission denied"), "got: {}", msg);
+    }
+
+    #[test]
+    fn test_classify_io_error_storage_full() {
+        let e = io::Error::new(io::ErrorKind::StorageFull, "full");
+        let msg = classify_io_error(&e);
+        assert!(msg.contains("Disk full"), "got: {}", msg);
+    }
+
+    #[test]
+    fn test_classify_io_error_fallback() {
+        let e = io::Error::new(io::ErrorKind::Other, "something else");
+        let msg = classify_io_error(&e);
+        assert!(msg.contains("Operation failed"), "got: {}", msg);
     }
 }
