@@ -42,3 +42,7 @@ export async function importRulesets(path: string): Promise<Ruleset[]> {
 export async function exportRulesets(path: string): Promise<void> {
   return invoke("export_rulesets", { path });
 }
+
+export async function openInExplorer(path: string): Promise<void> {
+  return invoke("open_in_explorer", { path });
+}

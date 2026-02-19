@@ -5,6 +5,11 @@ import { RulesetCard } from "./RulesetCard";
 import { renderWithProviders } from "../test/helpers/renderWithProviders";
 import { defaultRuleset, copyRuleset, disabledRuleset } from "../test/mocks/fixtures";
 
+vi.mock("../lib/commands", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../lib/commands")>();
+  return { ...actual, openInExplorer: vi.fn().mockResolvedValue(undefined) };
+});
+
 function renderCard(overrides?: {
   ruleset?: typeof defaultRuleset;
   executing?: boolean;
@@ -63,5 +68,28 @@ describe("RulesetCard", () => {
   it("action=copy のバッジは 'コピー' と表示される", () => {
     renderCard({ ruleset: copyRuleset });
     expect(screen.getByTestId("ruleset-action-badge")).toHaveTextContent("コピー");
+  });
+
+  it("メニューボタンをクリックするとサブメニューが表示される", async () => {
+    renderCard();
+    expect(screen.queryByTestId("ruleset-menu-dropdown")).toBeNull();
+    await userEvent.click(screen.getByTestId("ruleset-menu"));
+    expect(screen.getByTestId("ruleset-menu-dropdown")).toBeTruthy();
+  });
+
+  it("「対象フォルダを開く」をクリックすると openInExplorer が source_dir で呼ばれる", async () => {
+    const { openInExplorer } = await import("../lib/commands");
+    renderCard();
+    await userEvent.click(screen.getByTestId("ruleset-menu"));
+    await userEvent.click(screen.getByTestId("ruleset-open-source"));
+    expect(openInExplorer).toHaveBeenCalledWith(defaultRuleset.source_dir);
+  });
+
+  it("「保存先フォルダを開く」をクリックすると openInExplorer が destination_dir で呼ばれる", async () => {
+    const { openInExplorer } = await import("../lib/commands");
+    renderCard();
+    await userEvent.click(screen.getByTestId("ruleset-menu"));
+    await userEvent.click(screen.getByTestId("ruleset-open-destination"));
+    expect(openInExplorer).toHaveBeenCalledWith(defaultRuleset.destination_dir);
   });
 });

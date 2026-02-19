@@ -182,3 +182,12 @@ pub fn export_rulesets(path: String) -> Result<(), String> {
     let (_, file) = load_rulesets()?;
     file.save(Path::new(&path)).map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+pub fn open_in_explorer(path: String) -> Result<(), String> {
+    std::process::Command::new("explorer.exe")
+        .arg(&path)
+        .spawn()
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}

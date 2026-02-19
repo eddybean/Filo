@@ -17,7 +17,10 @@
     "execute": "実行",
     "edit": "編集",
     "delete": "削除",
-    "deleteConfirm": "ルールセット「{{name}}」を削除しますか？"
+    "deleteConfirm": "ルールセット「{{name}}」を削除しますか？",
+    "menu": "メニュー",
+    "openSourceDir": "対象フォルダを開く",
+    "openDestinationDir": "保存先フォルダを開く"
   },
   "editor": {
     "title": "ルールセット編集",

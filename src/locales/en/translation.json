@@ -17,7 +17,10 @@
     "execute": "Execute",
     "edit": "Edit",
     "delete": "Delete",
-    "deleteConfirm": "Delete ruleset \"{{name}}\"?"
+    "deleteConfirm": "Delete ruleset \"{{name}}\"?",
+    "menu": "Menu",
+    "openSourceDir": "Open source folder",
+    "openDestinationDir": "Open destination folder"
   },
   "editor": {
     "title": "Edit Ruleset",
