@@ -12,6 +12,7 @@ interface RulesetCardProps {
   onDelete: (id: string) => void;
   onDuplicate: (id: string) => void;
   executing: boolean;
+  onMenuOpenChange?: (open: boolean) => void;
 }
 
 export function RulesetCard({
@@ -23,34 +24,49 @@ export function RulesetCard({
   onDelete,
   onDuplicate,
   executing,
+  onMenuOpenChange,
 }: RulesetCardProps) {
   const { t } = useTranslation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuDropsUp, setMenuDropsUp] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  function changeMenuOpen(open: boolean) {
+    setMenuOpen(open);
+    onMenuOpenChange?.(open);
+  }
 
   useEffect(() => {
     if (!menuOpen) return;
     function handleClickOutside(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
+        changeMenuOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [menuOpen]);
 
+  function handleMenuToggle() {
+    if (!menuOpen && menuRef.current) {
+      const rect = menuRef.current.getBoundingClientRect();
+      setMenuDropsUp(window.innerHeight - rect.bottom < 140);
+    }
+    changeMenuOpen(!menuOpen);
+  }
+
   function handleDuplicate() {
-    setMenuOpen(false);
+    changeMenuOpen(false);
     onDuplicate(ruleset.id);
   }
 
   async function openSourceDir() {
-    setMenuOpen(false);
+    changeMenuOpen(false);
     if (ruleset.source_dir) await openInExplorer(ruleset.source_dir);
   }
 
   async function openDestinationDir() {
-    setMenuOpen(false);
+    changeMenuOpen(false);
     if (ruleset.destination_dir) await openInExplorer(ruleset.destination_dir);
   }
 
@@ -155,7 +171,7 @@ export function RulesetCard({
         <div ref={menuRef} className="relative">
           <button
             data-testid="ruleset-menu"
-            onClick={() => setMenuOpen((prev) => !prev)}
+            onClick={handleMenuToggle}
             title={t("ruleset.menu")}
             className="p-1.5 text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors duration-150"
           >
@@ -168,7 +184,7 @@ export function RulesetCard({
           {menuOpen && (
             <div
               data-testid="ruleset-menu-dropdown"
-              className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-700 rounded-xl shadow-[0_8px_24px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.08)] z-10 py-1"
+              className={`absolute right-0 w-48 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-700 rounded-xl shadow-[0_8px_24px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.08)] z-10 py-1 ${menuDropsUp ? "bottom-full mb-1" : "top-full mt-1"}`}
             >
               <button
                 data-testid="ruleset-duplicate"

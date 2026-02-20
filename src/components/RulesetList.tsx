@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   DndContext,
   closestCenter,
@@ -36,7 +37,11 @@ function SortableItem({
 }: {
   ruleset: Ruleset;
   index: number;
-} & Omit<React.ComponentProps<typeof RulesetCard>, "ruleset" | "index">) {
+} & Omit<
+  React.ComponentProps<typeof RulesetCard>,
+  "ruleset" | "index" | "onMenuOpenChange"
+>) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
     id: ruleset.id,
   });
@@ -47,8 +52,19 @@ function SortableItem({
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <RulesetCard ruleset={ruleset} index={index} {...props} />
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className={isMenuOpen ? "relative z-10" : ""}
+    >
+      <RulesetCard
+        ruleset={ruleset}
+        index={index}
+        {...props}
+        onMenuOpenChange={setIsMenuOpen}
+      />
     </div>
   );
 }
