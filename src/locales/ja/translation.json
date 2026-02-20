@@ -48,6 +48,17 @@
     "save": "保存",
     "cancel": "キャンセル",
     "destinationTemplateHint": "正規表現の (?P<name>...) グループを {name} の形式で保存先パスに使用できます（例: C:/sorted/{label}/{author}）",
+    "regexTester": {
+      "sampleInput": "ファイル名でテスト",
+      "samplePlaceholder": "例: IMG_20250101_001.jpg",
+      "matched": "マッチしました",
+      "noMatch": "マッチしません",
+      "syntaxError": "構文エラー: {{message}}",
+      "resolvedPath": "保存先",
+      "loadFiles": "ソースフォルダのファイルで確認",
+      "loadError": "読み込みエラー: {{message}}",
+      "matchCount": "{{matched}} / {{total}} 件マッチ"
+    },
     "validation": {
       "nameRequired": "名前を入力してください",
       "sourceDirRequired": "対象フォルダを指定してください",

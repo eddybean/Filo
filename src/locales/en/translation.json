@@ -48,6 +48,17 @@
     "save": "Save",
     "cancel": "Cancel",
     "destinationTemplateHint": "You can use regex named groups (?P<name>...) as {name} in the destination path (e.g. C:/sorted/{label}/{author})",
+    "regexTester": {
+      "sampleInput": "Test with filename",
+      "samplePlaceholder": "e.g. IMG_20250101_001.jpg",
+      "matched": "Matched",
+      "noMatch": "No match",
+      "syntaxError": "Syntax error: {{message}}",
+      "resolvedPath": "Destination",
+      "loadFiles": "Test with source folder files",
+      "loadError": "Load error: {{message}}",
+      "matchCount": "{{matched}} / {{total}} files matched"
+    },
     "validation": {
       "nameRequired": "Name is required",
       "sourceDirRequired": "Source folder is required",

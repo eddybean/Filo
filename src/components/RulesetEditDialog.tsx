@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { confirm } from "@tauri-apps/plugin-dialog";
 import type { Ruleset, Action, MatchType, Filters } from "../lib/types";
+import { RegexTesterPanel } from "./RegexTesterPanel";
 
 interface RulesetEditDialogProps {
   ruleset: Ruleset | null; // null = create new
@@ -397,6 +398,13 @@ export function RulesetEditDialog({
                 placeholder={t("editor.pattern")}
                 className="w-full px-2 py-1 border border-slate-200 dark:border-slate-700 rounded-lg text-xs bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:focus:ring-blue-400/40 focus:border-blue-400 dark:focus:border-blue-500 font-mono transition-colors"
               />
+              {form.filters.filename?.match_type === "regex" && (
+                <RegexTesterPanel
+                  pattern={form.filters.filename.pattern}
+                  sourceDir={form.source_dir}
+                  destinationDir={form.destination_dir}
+                />
+              )}
             </div>
 
             {/* Date ranges */}

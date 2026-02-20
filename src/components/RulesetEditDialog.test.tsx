@@ -10,6 +10,11 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({
   confirm: vi.fn().mockResolvedValue(true),
 }));
 
+// RegexTesterPanel 内の listSourceFiles をモック化
+vi.mock("../lib/commands", () => ({
+  listSourceFiles: vi.fn().mockResolvedValue([]),
+}));
+
 function renderDialog(overrides?: { ruleset?: typeof defaultRuleset | null }) {
   const props = {
     ruleset: null as typeof defaultRuleset | null,
@@ -113,6 +118,19 @@ describe("RulesetEditDialog", () => {
       expect(confirm).toHaveBeenCalledOnce();
     });
     expect(onCancel).toHaveBeenCalledOnce();
+  });
+
+  it("正規表現モードを選択すると正規表現テスターパネルが表示される", async () => {
+    renderDialog();
+    // 正規表現ラジオボタンをクリック
+    await userEvent.click(screen.getByLabelText("正規表現"));
+
+    expect(screen.getByTestId("regex-tester-panel")).toBeInTheDocument();
+  });
+
+  it("glob モードのときは正規表現テスターパネルが表示されない", () => {
+    renderDialog();
+    expect(screen.queryByTestId("regex-tester-panel")).not.toBeInTheDocument();
   });
 
   it("保存先にテンプレート変数を使い正規表現以外のフィルタで保存するとバリデーションエラーが表示される", async () => {

@@ -190,3 +190,63 @@ pub fn open_in_explorer(path: String) -> Result<(), String> {
         .map_err(|e| e.to_string())?;
     Ok(())
 }
+
+#[tauri::command]
+pub fn list_source_files(dir: String) -> Result<Vec<String>, String> {
+    let path = Path::new(&dir);
+    if !path.exists() || !path.is_dir() {
+        return Err(format!("Directory not found: {}", dir));
+    }
+    let mut files: Vec<String> = std::fs::read_dir(path)
+        .map_err(|e| e.to_string())?
+        .filter_map(|entry| {
+            let entry = entry.ok()?;
+            if entry.path().is_file() {
+                entry.file_name().to_str().map(|s| s.to_string())
+            } else {
+                None
+            }
+        })
+        .collect();
+    files.sort();
+    Ok(files)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    #[test]
+    fn test_list_source_files_returns_filenames() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join("foo.txt"), "").unwrap();
+        fs::write(dir.path().join("bar.jpg"), "").unwrap();
+
+        let result = list_source_files(dir.path().to_str().unwrap().to_string()).unwrap();
+        assert_eq!(result, vec!["bar.jpg", "foo.txt"]);
+    }
+
+    #[test]
+    fn test_list_source_files_excludes_directories() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join("file.txt"), "").unwrap();
+        fs::create_dir(dir.path().join("subdir")).unwrap();
+
+        let result = list_source_files(dir.path().to_str().unwrap().to_string()).unwrap();
+        assert_eq!(result, vec!["file.txt"]);
+    }
+
+    #[test]
+    fn test_list_source_files_empty_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = list_source_files(dir.path().to_str().unwrap().to_string()).unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_list_source_files_nonexistent_dir() {
+        let result = list_source_files("/nonexistent/path/12345".to_string());
+        assert!(result.is_err());
+    }
+}

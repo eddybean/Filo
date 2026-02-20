@@ -233,8 +233,59 @@ filters:
 | アクション選択 | 「移動」と「コピー」をラジオボタンで切替 |
 | 拡張子入力 | タグ形式で複数追加・削除が可能 |
 | ファイル名パターン | glob または正規表現を選択してパターンを入力 |
+| 正規表現テスター | ファイル名パターンの方式を「正規表現」にしたとき、パターン入力欄の直下に表示されるインタラクティブなテスト UI（後述） |
 | 日時入力 | カレンダーピッカーまたは手動入力 |
 | バリデーション | 保存時に必須フィールドとフィルタ条件（1つ以上）を検証 |
+
+### 3.3 正規表現テスターパネル（`RegexTesterPanel`）
+
+ファイル名パターンの方式を「正規表現」に切り替えたときのみ表示されるインラインパネル。正規表現を即座に検証できる。
+
+```
+┌──────────────────────────────────────────────────────────┐
+│  ファイル名でテスト:                                          │
+│  [ IMG_20250101_001.jpg                       ]           │
+│                                                          │
+│  ✓ マッチしました                                           │
+│  date = "20250101"                                        │
+│  保存先: D:/sorted/2025/001                               │
+├──────────────────────────────────────────────────────────┤
+│  [ソースフォルダのファイルで確認]  ← 対象フォルダが指定済みの場合のみ │
+│                                                          │
+│  2 / 5 件マッチ                                            │
+│  ✓ IMG_20250101_001.jpg → D:/sorted/2025/001             │
+│  ✓ IMG_20250102_002.jpg → D:/sorted/2025/002             │
+└──────────────────────────────────────────────────────────┘
+```
+
+#### サンプルファイル名テスト（常時表示）
+
+| 項目 | 仕様 |
+|------|------|
+| 入力欄 | 任意のファイル名を手入力してリアルタイムにマッチ判定する |
+| 構文エラー表示 | 無効な正規表現の場合、赤字でエラーメッセージを表示する |
+| マッチ結果 | マッチした場合は「マッチしました」（緑）、しない場合は「マッチしません」（グレー）を表示する |
+| キャプチャグループ表示 | マッチ成功かつ名前付きキャプチャグループが存在する場合、グループ名と取得値を一覧表示する |
+| 保存先プレビュー | 保存先フォルダにテンプレート変数（`{変数名}`）が含まれ、マッチ成功した場合、変数を解決した保存先パスを表示する |
+
+#### ソースフォルダのファイルで確認（対象フォルダ指定済みの場合のみ表示）
+
+| 項目 | 仕様 |
+|------|------|
+| 「ソースフォルダのファイルで確認」ボタン | クリックすると `list_source_files` コマンドで対象フォルダ内のファイル一覧を取得する |
+| マッチ数サマリー | 「N / M 件マッチ」の形式でマッチしたファイル数と総ファイル数を表示する |
+| ファイル一覧 | **マッチしたファイルのみ**を表示する。スクロール可能領域（最大高さ制限）に収める |
+| 保存先プレビュー | テンプレート変数が設定されている場合、各ファイルの解決後の保存先パスを「→ 保存先パス」形式で表示する |
+| 読み込みエラー | ディレクトリが存在しない等のエラー時は赤字でメッセージを表示する |
+
+#### 正規表現の Rust/JS 差異の吸収
+
+実行エンジンは Rust の `regex` クレート（RE2 構文）を使用するが、テスターパネルは JavaScript の `RegExp` を使用する。以下の変換を行い、Rust と同じマッチング結果を再現する。
+
+| Rust 構文 | JavaScript 変換後 | 意味 |
+|-----------|-----------------|------|
+| `(?P<name>...)` | `(?<name>...)` | 名前付きキャプチャグループ |
+| `[^]...` （`]` を negated class の先頭に置く記法） | `[^\]...` | `]` を含まない文字クラス |
 
 ### 3.3 実行結果ダイアログ
 
@@ -453,6 +504,7 @@ Windows 11 の Fluent Design 2.0 を基調とし、現代的なトレンドを�
 | `undo_all` | `files: UndoRequest[]` | `UndoResult[]` | 複数ファイルの一括Undo |
 | `import_rulesets` | `path: string` | `Result<Ruleset[]>` | YAMLファイルからインポート |
 | `export_rulesets` | `path: string` | `Result<()>` | YAMLファイルへエクスポート |
+| `list_source_files` | `dir: string` | `Result<Vec<String>>` | 指定ディレクトリの直下にあるファイル名一覧を取得（サブディレクトリは除外、アルファベット順）。正規表現テスターパネルの「ソースフォルダのファイルで確認」機能で使用 |
 
 > **注**: フォルダ選択ダイアログ (`select_folder`) はフロントエンドから `@tauri-apps/plugin-dialog` の `open()` を直接呼び出すため、Tauri コマンドとしては存在しない。
 
@@ -584,6 +636,8 @@ filo/
 │   │   ├── RulesetCard.test.tsx  # ↑ コンポーネントテスト
 │   │   ├── RulesetEditDialog.tsx # 編集ダイアログ
 │   │   ├── RulesetEditDialog.test.tsx # ↑ コンポーネントテスト
+│   │   ├── RegexTesterPanel.tsx  # 正規表現テスターパネル
+│   │   ├── RegexTesterPanel.test.tsx  # ↑ コンポーネントテスト
 │   │   ├── ExecutionResultDialog.tsx  # 実行結果ダイアログ
 │   │   ├── LoadingOverlay.tsx    # 実行中ローディングオーバーレイ
 │   │   └── Toolbar.tsx           # ツールバー
@@ -622,8 +676,8 @@ filo/
 
 | レイヤー | フレームワーク | 対象 | 件数 |
 |---------|--------------|------|------|
-| Layer 1: Rust 単体テスト | Rust 標準テスト | `ruleset.rs`, `filters.rs`, `engine.rs` のロジック | 67件 |
-| Layer 2: Vitest コンポーネントテスト | Vitest + @testing-library/react | UI コンポーネント・Zustand ストア | 29件 |
+| Layer 1: Rust 単体テスト | Rust 標準テスト | `ruleset.rs`, `filters.rs`, `engine.rs`, `commands.rs` のロジック | 71件 |
+| Layer 2: Vitest コンポーネントテスト | Vitest + @testing-library/react | UI コンポーネント・Zustand ストア | 43件 |
 
 ### 7.2 テスト実行コマンド
 
@@ -665,7 +719,7 @@ npm run test:all
 | 「対象フォルダを開く」クリック → `openPath(source_dir)` が呼ばれる |
 | 「保存先フォルダを開く」クリック → `openPath(destination_dir)` が呼ばれる |
 
-#### `src/components/RulesetEditDialog.test.tsx`（7件）
+#### `src/components/RulesetEditDialog.test.tsx`（9件）
 
 | テスト内容 |
 |-----------|
@@ -675,7 +729,27 @@ npm run test:all
 | 有効なデータで保存 → `onSave` が呼ばれる |
 | 変更なしでキャンセル → confirm なしで `onCancel` が呼ばれる |
 | 変更ありでキャンセル → confirm ダイアログが呼ばれる |
+| 正規表現モードを選択すると正規表現テスターパネルが表示される |
+| glob モードのときは正規表現テスターパネルが表示されない |
 | 保存先にテンプレート変数あり + 正規表現以外のフィルタで保存 → バリデーションエラーが表示される |
+
+#### `src/components/RegexTesterPanel.test.tsx`（13件）
+
+| テスト内容 |
+|-----------|
+| パターンが空のときは結果が表示されない |
+| 無効な正規表現のとき構文エラーが表示される |
+| サンプルファイル名がマッチするとき「マッチしました」が表示される |
+| サンプルファイル名がマッチしないとき「マッチしません」が表示される |
+| 名前付きキャプチャグループがあるときグループ名と値が表示される |
+| `[^]]` 構文（Rust で `]` を negated class の先頭に置く書き方）が正しくマッチする |
+| Rust の `(?P<name>...)` 構文でもキャプチャグループが動作する |
+| `destinationDir` にテンプレート変数があるとき解決後のパスが表示される |
+| `sourceDir` が空のときソースフォルダ読み込みボタンが表示されない |
+| `sourceDir` があるときソースフォルダ読み込みボタンが表示される |
+| ソースフォルダ読み込みボタンをクリックするとマッチしたファイル一覧が表示される |
+| ファイル一覧でマッチ数サマリーが表示される |
+| ソースフォルダの読み込みに失敗するとエラーが表示される |
 
 #### `src/store/rulesetStore.test.ts`（5件）
 
@@ -736,6 +810,7 @@ renderWithProviders(ui: React.ReactElement): RenderResult
 | `Toolbar` | `toolbar`, `toolbar-create`, `toolbar-execute-all`, `toolbar-import`, `toolbar-export` |
 | `RulesetCard` | `ruleset-card`, `ruleset-toggle`, `ruleset-name`, `ruleset-execute`, `ruleset-edit`, `ruleset-delete`, `ruleset-menu`, `ruleset-menu-dropdown`, `ruleset-duplicate`, `ruleset-open-source`, `ruleset-open-destination` |
 | `RulesetEditDialog` | `edit-dialog`, `field-name`, `field-source-dir`, `field-dest-dir`, `btn-save`, `btn-cancel`, `extension-input`, `btn-extension-add`, `validation-errors` |
+| `RegexTesterPanel` | `regex-tester-panel`, `regex-sample-input`, `regex-syntax-error`, `regex-match-result`, `regex-capture-groups`, `regex-resolved-path`, `regex-load-files-btn`, `regex-file-list`, `regex-match-count` |
 | `ExecutionResultDialog` | `result-dialog`, `btn-result-close`, `btn-undo-all` |
 | `LoadingOverlay` | `loading-overlay` |
 
