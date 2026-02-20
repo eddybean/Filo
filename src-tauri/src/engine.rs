@@ -262,8 +262,7 @@ pub fn undo_file_move(source_path: &Path, destination_path: &Path) -> Result<(),
         fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {}", e))?;
     }
 
-    move_file(destination_path, source_path)
-        .map_err(|e| classify_io_error(&e))
+    move_file(destination_path, source_path).map_err(|e| classify_io_error(&e))
 }
 
 #[cfg(test)]

@@ -104,15 +104,21 @@ function SingleResult({ result }: { result: ExecutionResult }) {
       <div className="flex gap-4 text-sm mb-3">
         <span className="text-emerald-600 dark:text-emerald-400">
           ✓ {t("result.succeeded")}:{" "}
-          <span className="font-semibold">{t("result.items", { count: result.succeeded.length })}</span>
+          <span className="font-semibold">
+            {t("result.items", { count: result.succeeded.length })}
+          </span>
         </span>
         <span className="text-amber-600 dark:text-amber-400">
           ⚠ {t("result.skipped")}:{" "}
-          <span className="font-semibold">{t("result.items", { count: result.skipped.length })}</span>
+          <span className="font-semibold">
+            {t("result.items", { count: result.skipped.length })}
+          </span>
         </span>
         <span className="text-red-600 dark:text-red-400">
           ✗ {t("result.errors")}:{" "}
-          <span className="font-semibold">{t("result.items", { count: result.errors.length })}</span>
+          <span className="font-semibold">
+            {t("result.items", { count: result.errors.length })}
+          </span>
         </span>
       </div>
 
@@ -149,7 +155,9 @@ function SingleResult({ result }: { result: ExecutionResult }) {
                 </button>
               )}
               {status === "error" && (
-                <span className="text-red-500 dark:text-red-400">{t("result.undoError")}</span>
+                <span className="text-red-500 dark:text-red-400">
+                  {t("result.undoError")}
+                </span>
               )}
             </div>
           );

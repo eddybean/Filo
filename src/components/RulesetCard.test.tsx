@@ -33,7 +33,9 @@ describe("RulesetCard", () => {
     renderCard();
     expect(screen.getByTestId("ruleset-name")).toHaveTextContent(defaultRuleset.name);
     // toHaveTextContent はサブストリングマッチのためバックスラッシュも安全に検索できる
-    expect(screen.getByTestId("ruleset-card")).toHaveTextContent(defaultRuleset.source_dir);
+    expect(screen.getByTestId("ruleset-card")).toHaveTextContent(
+      defaultRuleset.source_dir,
+    );
   });
 
   it("チェックボックスを変更すると onToggleEnabled が呼ばれる", async () => {

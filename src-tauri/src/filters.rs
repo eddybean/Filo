@@ -274,9 +274,7 @@ mod tests {
             filename: None,
             created_at: None,
             modified_at: Some(DateTimeRange {
-                start: Some(
-                    (chrono::Local::now() - chrono::Duration::hours(1)).to_rfc3339(),
-                ),
+                start: Some((chrono::Local::now() - chrono::Duration::hours(1)).to_rfc3339()),
                 end: None,
             }),
         };
@@ -296,9 +294,7 @@ mod tests {
             created_at: None,
             modified_at: Some(DateTimeRange {
                 start: None,
-                end: Some(
-                    (chrono::Local::now() - chrono::Duration::hours(1)).to_rfc3339(),
-                ),
+                end: Some((chrono::Local::now() - chrono::Duration::hours(1)).to_rfc3339()),
             }),
         };
 

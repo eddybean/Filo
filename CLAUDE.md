@@ -1,15 +1,16 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
 ## Conversation Guidelines
 
 - 常に日本語で会話する
+- 応答は敬語不要
+- 「良い指摘ですね」のような本題と関係のない感想は省くこと
 
 ## Project Overview
 
 Filo はユーザ定義のルールセットに基づいてファイルを移動/コピーする Windows 11 向け GUI アプリ。
 技術スタック: Tauri v2 (Rust バックエンド) + React 19 + TypeScript フロントエンド。
+詳細な仕様は docs/SPEC.md を参照。
 
 ## セットアップ・ビルドスクリプト
 
@@ -58,14 +59,6 @@ src/                    # React フロントエンド
   └── locales/          # 翻訳ファイル (ja, en)
 ```
 
-## Key Conventions
-
-- ルールセットの保存形式は YAML（`%APPDATA%/filo/rulesets/filo-rules.yaml`）
-- フィルタ条件は AND 結合、extensions 内部は OR 結合
-- Rust の `order` フィールドは不要（YAML 配列の順序で管理）
-- `id` は UUID v4 で自動生成、YAML にも永続化
-- i18n は react-i18next、翻訳キーは `src/locales/` の JSON を参照
-
 ## 実行環境とコマンド選択
 
 ### 動作環境
@@ -84,6 +77,8 @@ src/                    # React フロントエンド
 | `grep`, `rg` | Grep ツール |
 | `find`, `ls` | Glob ツール |
 | `sed`, `awk` | Edit ツール |
+
+Windows環境でコマンドを実行する際は、改行コードが `CRLF` 文字コードは `Shift-JIS` で行うこと
 
 ### Node.js スクリプト内でのパス・コマンド解決
 
@@ -114,12 +109,15 @@ src/                    # React フロントエンド
 **ソースコードを変更（機能実装・バグ修正・リファクタリング）した場合は、作業完了時に必ず以下を実行してから応答を終了すること：**
 
 ```bash
+npm run format
+npm run format:rust
 npx vitest run
 ```
 
 - 全テストが通過したら結果をユーザーに報告する
 - 失敗したら原因を分析して修正し、再度実行する（最大3回）
 - テストが存在しない変更（ドキュメント修正等）は省略してよい
+- テストが正常に完了したら、仕様に変更点がある場合のみ docs/SPEC.md へ反映する
 
 # セッション引き継ぎ
 

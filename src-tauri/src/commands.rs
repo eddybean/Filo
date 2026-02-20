@@ -109,10 +109,7 @@ pub fn reorder_rulesets(ids: Vec<String>) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn execute_ruleset(
-    app: tauri::AppHandle,
-    id: String,
-) -> Result<ExecutionResult, String> {
+pub fn execute_ruleset(app: tauri::AppHandle, id: String) -> Result<ExecutionResult, String> {
     let (_, file) = load_rulesets()?;
     let ruleset = file
         .rulesets

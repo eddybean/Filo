@@ -241,10 +241,7 @@ function App() {
       )}
 
       {executing && (
-        <LoadingOverlay
-          currentFile={executingFile}
-          currentRuleset={executingRuleset}
-        />
+        <LoadingOverlay currentFile={executingFile} currentRuleset={executingRuleset} />
       )}
     </main>
   );
