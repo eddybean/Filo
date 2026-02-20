@@ -114,4 +114,22 @@ describe("RulesetEditDialog", () => {
     });
     expect(onCancel).toHaveBeenCalledOnce();
   });
+
+  it("保存先にテンプレート変数を使い正規表現以外のフィルタで保存するとバリデーションエラーが表示される", async () => {
+    renderDialog();
+    await userEvent.type(screen.getByTestId("field-name"), "テストルール");
+    await userEvent.type(screen.getByTestId("field-source-dir"), "C:\\src");
+    // テンプレート変数を含む destination_dir（{} は userEvent の特殊文字のため {{ }} でエスケープ）
+    await userEvent.type(screen.getByTestId("field-dest-dir"), "C:\\dst\\{{label}}");
+    // 拡張子フィルタを追加（正規表現なし）
+    await userEvent.type(screen.getByTestId("extension-input"), ".zip");
+    await userEvent.click(screen.getByTestId("btn-extension-add"));
+
+    await userEvent.click(screen.getByTestId("btn-save"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("validation-errors")).toBeInTheDocument();
+    });
+    expect(screen.getByTestId("validation-errors")).toHaveTextContent("正規表現");
+  });
 });

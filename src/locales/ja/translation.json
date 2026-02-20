@@ -47,11 +47,13 @@
     "discardConfirm": "入力中の内容が破棄されます。よろしいですか？",
     "save": "保存",
     "cancel": "キャンセル",
+    "destinationTemplateHint": "正規表現の (?P<name>...) グループを {name} の形式で保存先パスに使用できます（例: C:/sorted/{label}/{author}）",
     "validation": {
       "nameRequired": "名前を入力してください",
       "sourceDirRequired": "対象フォルダを指定してください",
       "destinationDirRequired": "保存先フォルダを指定してください",
-      "filterRequired": "フィルタ条件を1つ以上指定してください"
+      "filterRequired": "フィルタ条件を1つ以上指定してください",
+      "destinationTemplateRequiresRegex": "保存先パスにテンプレート変数を使う場合、ファイル名フィルタに正規表現を指定してください"
     }
   },
   "execution": {

@@ -69,6 +69,10 @@ export function RulesetEditDialog({
     updateFilters({ extensions: updated.length > 0 ? updated : null });
   }
 
+  function hasTemplateVars(s: string): boolean {
+    return /\{[^}]+\}/.test(s);
+  }
+
   function validate(): boolean {
     const errs: string[] = [];
     if (!form.name.trim()) errs.push(t("editor.validation.nameRequired"));
@@ -82,6 +86,13 @@ export function RulesetEditDialog({
       f.created_at ||
       f.modified_at;
     if (!hasFilter) errs.push(t("editor.validation.filterRequired"));
+
+    if (
+      hasTemplateVars(form.destination_dir) &&
+      form.filters.filename?.match_type !== "regex"
+    ) {
+      errs.push(t("editor.validation.destinationTemplateRequiresRegex"));
+    }
 
     setErrors(errs);
     return errs.length === 0;
@@ -204,35 +215,42 @@ export function RulesetEditDialog({
             </button>
           </div>
 
-          <div className="grid grid-cols-[1fr_auto] gap-2">
-            <div>
-              <label className={labelClass}>{t("editor.destinationDir")}</label>
-              <input
-                data-testid="field-dest-dir"
-                type="text"
-                value={form.destination_dir}
-                onChange={(e) => updateField("destination_dir", e.target.value)}
-                className={inputClass}
-              />
-            </div>
-            <button
-              onClick={selectDest}
-              className="self-end px-2.5 py-1.5 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"
+          <div>
+            <div className="grid grid-cols-[1fr_auto] gap-2">
+              <div>
+                <label className={labelClass}>{t("editor.destinationDir")}</label>
+                <input
+                  data-testid="field-dest-dir"
+                  type="text"
+                  value={form.destination_dir}
+                  onChange={(e) => updateField("destination_dir", e.target.value)}
+                  className={inputClass}
                 />
-              </svg>
-            </button>
+              </div>
+              <button
+                onClick={selectDest}
+                className="self-end px-2.5 py-1.5 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"
+                  />
+                </svg>
+              </button>
+            </div>
+            {form.filters.filename?.match_type === "regex" && (
+              <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+                {t("editor.destinationTemplateHint")}
+              </p>
+            )}
           </div>
 
           {/* Action + Overwrite */}

@@ -1,6 +1,7 @@
-use crate::filters::matches_filters;
+use crate::filters::{extract_named_captures, matches_filters};
 use crate::ruleset::{Action, Ruleset};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -93,6 +94,74 @@ fn classify_io_error(e: &io::Error) -> String {
     }
 }
 
+/// `destination_dir` にテンプレート変数 `{xxx}` が含まれているか判定する。
+fn has_template_vars(s: &str) -> bool {
+    let mut chars = s.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '{' {
+            if chars.peek().is_some() {
+                // 閉じ括弧が存在するか確認
+                for inner in chars.by_ref() {
+                    if inner == '}' {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+    false
+}
+
+/// Windows のパスコンポーネントとして使えない文字を `_` に置換する。
+fn sanitize_path_component(s: &str) -> String {
+    s.chars()
+        .map(|c| {
+            if matches!(c, '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|') {
+                '_'
+            } else {
+                c
+            }
+        })
+        .collect()
+}
+
+/// テンプレート文字列内の `{varname}` を captures の値で置換する。
+/// - 変数名が captures に存在しない場合は `Err`
+/// - 値が空文字の場合は `Err`
+/// - 値は `sanitize_path_component` でサニタイズされる
+fn resolve_destination_template(
+    template: &str,
+    captures: &HashMap<String, String>,
+) -> Result<String, String> {
+    let re = regex::Regex::new(r"\{([^}]+)\}").expect("static pattern is valid");
+    let mut error: Option<String> = None;
+    let result = re.replace_all(template, |caps: &regex::Captures| {
+        let var_name = &caps[1];
+        match captures.get(var_name) {
+            Some(val) if !val.is_empty() => sanitize_path_component(val),
+            Some(_) => {
+                error.get_or_insert_with(|| {
+                    format!("Template variable '{}' resolved to empty string", var_name)
+                });
+                String::new()
+            }
+            None => {
+                error.get_or_insert_with(|| {
+                    format!(
+                        "Template variable '{}' not found in regex capture groups",
+                        var_name
+                    )
+                });
+                String::new()
+            }
+        }
+    });
+    match error {
+        Some(e) => Err(e),
+        None => Ok(result.into_owned()),
+    }
+}
+
 pub fn execute_ruleset(ruleset: &Ruleset, on_progress: impl Fn(&str)) -> ExecutionResult {
     let mut succeeded = Vec::new();
     let mut skipped = Vec::new();
@@ -119,22 +188,26 @@ pub fn execute_ruleset(ruleset: &Ruleset, on_progress: impl Fn(&str)) -> Executi
         };
     }
 
-    // Create destination directory if needed
-    if let Err(e) = fs::create_dir_all(&destination_dir) {
-        return ExecutionResult {
-            ruleset_id: ruleset.id.clone(),
-            ruleset_name: ruleset.name.clone(),
-            action: ruleset.action.clone(),
-            status: ExecutionStatus::Failed,
-            succeeded,
-            skipped,
-            errors: vec![FileResult {
-                filename: String::new(),
-                source_path: destination_dir,
-                destination_path: None,
-                reason: Some(format!("Failed to create destination directory: {}", e)),
-            }],
-        };
+    // テンプレート変数がない場合のみ事前に destination_dir を作成する。
+    // テンプレートがある場合はファイルごとに解決して作成する。
+    let use_template = has_template_vars(&ruleset.destination_dir);
+    if !use_template {
+        if let Err(e) = fs::create_dir_all(&destination_dir) {
+            return ExecutionResult {
+                ruleset_id: ruleset.id.clone(),
+                ruleset_name: ruleset.name.clone(),
+                action: ruleset.action.clone(),
+                status: ExecutionStatus::Failed,
+                succeeded,
+                skipped,
+                errors: vec![FileResult {
+                    filename: String::new(),
+                    source_path: destination_dir,
+                    destination_path: None,
+                    reason: Some(format!("Failed to create destination directory: {}", e)),
+                }],
+            };
+        }
     }
 
     // List files in source directory (non-recursive)
@@ -194,7 +267,46 @@ pub fn execute_ruleset(ruleset: &Ruleset, on_progress: impl Fn(&str)) -> Executi
             .to_string_lossy()
             .to_string();
         on_progress(&filename);
-        let dest_path = destination_dir.join(&filename);
+
+        // テンプレート変数がある場合はファイル名からキャプチャを取得して解決する
+        let resolved_dir = if use_template {
+            let pattern = ruleset
+                .filters
+                .filename
+                .as_ref()
+                .map(|f| f.pattern.as_str())
+                .unwrap_or("");
+            let caps = extract_named_captures(&filename, pattern);
+            match resolve_destination_template(&ruleset.destination_dir, &caps) {
+                Ok(dir) => PathBuf::from(dir),
+                Err(reason) => {
+                    skipped.push(FileResult {
+                        filename,
+                        source_path: path,
+                        destination_path: None,
+                        reason: Some(reason),
+                    });
+                    continue;
+                }
+            }
+        } else {
+            destination_dir.clone()
+        };
+
+        // テンプレートで解決された場合はディレクトリを作成する
+        if use_template {
+            if let Err(e) = fs::create_dir_all(&resolved_dir) {
+                errors.push(FileResult {
+                    filename,
+                    source_path: path,
+                    destination_path: None,
+                    reason: Some(format!("Failed to create destination directory: {}", e)),
+                });
+                continue;
+            }
+        }
+
+        let dest_path = resolved_dir.join(&filename);
 
         // Check for existing file
         if dest_path.exists() && !ruleset.overwrite {
@@ -653,5 +765,168 @@ mod tests {
         assert_eq!(result.status, ExecutionStatus::PartialFailure);
         assert_eq!(result.succeeded.len(), 1);
         assert_eq!(result.errors.len(), 1);
+    }
+
+    // --- テンプレート機能のテスト ---
+
+    #[test]
+    fn test_has_template_vars_true() {
+        assert!(has_template_vars("D:/sorted/{label}/{author}"));
+        assert!(has_template_vars("{category}/file"));
+        assert!(has_template_vars("base/{x}"));
+    }
+
+    #[test]
+    fn test_has_template_vars_false() {
+        assert!(!has_template_vars("D:/sorted/static"));
+        assert!(!has_template_vars("C:/Users/user/Downloads"));
+        assert!(!has_template_vars(""));
+    }
+
+    #[test]
+    fn test_sanitize_path_component_valid() {
+        assert_eq!(sanitize_path_component("valid"), "valid");
+        assert_eq!(sanitize_path_component("john_doe"), "john_doe");
+        assert_eq!(sanitize_path_component("book123"), "book123");
+    }
+
+    #[test]
+    fn test_sanitize_path_component_invalid_chars() {
+        assert_eq!(sanitize_path_component("sci/fi"), "sci_fi");
+        assert_eq!(sanitize_path_component("with:colon"), "with_colon");
+        assert_eq!(sanitize_path_component("with\\backslash"), "with_backslash");
+        assert_eq!(sanitize_path_component("with*star"), "with_star");
+        assert_eq!(sanitize_path_component("with?question"), "with_question");
+        assert_eq!(sanitize_path_component("with\"quote"), "with_quote");
+        assert_eq!(sanitize_path_component("with<lt>gt"), "with_lt_gt");
+        assert_eq!(sanitize_path_component("with|pipe"), "with_pipe");
+    }
+
+    #[test]
+    fn test_resolve_destination_template_success() {
+        use std::collections::HashMap;
+        let mut captures = HashMap::new();
+        captures.insert("label".to_string(), "book".to_string());
+        captures.insert("author".to_string(), "john_doe".to_string());
+
+        let result = resolve_destination_template("D:/sorted/{label}/{author}", &captures);
+        assert_eq!(result.unwrap(), "D:/sorted/book/john_doe");
+    }
+
+    #[test]
+    fn test_resolve_destination_template_missing_var() {
+        use std::collections::HashMap;
+        let mut captures = HashMap::new();
+        captures.insert("label".to_string(), "book".to_string());
+
+        let result = resolve_destination_template("D:/sorted/{label}/{author}", &captures);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("author"));
+    }
+
+    #[test]
+    fn test_resolve_destination_template_empty_value() {
+        use std::collections::HashMap;
+        let mut captures = HashMap::new();
+        captures.insert("label".to_string(), "".to_string());
+
+        let result = resolve_destination_template("D:/sorted/{label}", &captures);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_resolve_destination_template_sanitizes_value() {
+        use std::collections::HashMap;
+        let mut captures = HashMap::new();
+        captures.insert("label".to_string(), "sci/fi".to_string());
+
+        let result = resolve_destination_template("D:/sorted/{label}", &captures);
+        assert_eq!(result.unwrap(), "D:/sorted/sci_fi");
+    }
+
+    #[test]
+    fn test_execute_ruleset_with_template_moves_to_dynamic_dest() {
+        let src = tempfile::tempdir().unwrap();
+        let dst_base = tempfile::tempdir().unwrap();
+
+        fs::write(src.path().join("(book) [john_doe] ihavepen.zip"), "content").unwrap();
+        fs::write(src.path().join("(magazine) [jane] article.zip"), "content2").unwrap();
+
+        let dest_template = format!("{}/{{label}}/{{author}}", dst_base.path().to_str().unwrap());
+
+        let ruleset = Ruleset {
+            id: "test-id".to_string(),
+            name: "test".to_string(),
+            enabled: true,
+            source_dir: src.path().to_str().unwrap().to_string(),
+            destination_dir: dest_template,
+            action: Action::Move,
+            overwrite: false,
+            filters: Filters {
+                extensions: None,
+                filename: Some(FilenameFilter {
+                    pattern: r"^\((?P<label>[^)]+)\) \[(?P<author>[^]]+)\] .+".to_string(),
+                    match_type: MatchType::Regex,
+                }),
+                created_at: None,
+                modified_at: None,
+            },
+        };
+
+        let result = execute_ruleset(&ruleset, |_| {});
+
+        assert_eq!(result.status, ExecutionStatus::Completed);
+        assert_eq!(result.succeeded.len(), 2);
+        assert_eq!(result.skipped.len(), 0);
+        assert_eq!(result.errors.len(), 0);
+
+        assert!(dst_base
+            .path()
+            .join("book/john_doe/(book) [john_doe] ihavepen.zip")
+            .exists());
+        assert!(dst_base
+            .path()
+            .join("magazine/jane/(magazine) [jane] article.zip")
+            .exists());
+    }
+
+    #[test]
+    fn test_execute_ruleset_template_unresolvable_var_skipped() {
+        let src = tempfile::tempdir().unwrap();
+        let dst_base = tempfile::tempdir().unwrap();
+
+        // regex は label と author を捕捉するが、テンプレートには存在しない {category} を使う
+        fs::write(src.path().join("(book) [john_doe] ihavepen.zip"), "content").unwrap();
+
+        let dest_template = format!(
+            "{}/{{label}}/{{category}}",
+            dst_base.path().to_str().unwrap()
+        );
+
+        let ruleset = Ruleset {
+            id: "test-id".to_string(),
+            name: "test".to_string(),
+            enabled: true,
+            source_dir: src.path().to_str().unwrap().to_string(),
+            destination_dir: dest_template,
+            action: Action::Move,
+            overwrite: false,
+            filters: Filters {
+                extensions: None,
+                filename: Some(FilenameFilter {
+                    pattern: r"^\((?P<label>[^)]+)\) \[(?P<author>[^]]+)\] .+".to_string(),
+                    match_type: MatchType::Regex,
+                }),
+                created_at: None,
+                modified_at: None,
+            },
+        };
+
+        let result = execute_ruleset(&ruleset, |_| {});
+
+        assert_eq!(result.skipped.len(), 1);
+        assert_eq!(result.succeeded.len(), 0);
+        // ファイルは移動されていない
+        assert!(src.path().join("(book) [john_doe] ihavepen.zip").exists());
     }
 }

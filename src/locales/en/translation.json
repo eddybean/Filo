@@ -47,11 +47,13 @@
     "discardConfirm": "Unsaved changes will be discarded. Are you sure?",
     "save": "Save",
     "cancel": "Cancel",
+    "destinationTemplateHint": "You can use regex named groups (?P<name>...) as {name} in the destination path (e.g. C:/sorted/{label}/{author})",
     "validation": {
       "nameRequired": "Name is required",
       "sourceDirRequired": "Source folder is required",
       "destinationDirRequired": "Destination folder is required",
-      "filterRequired": "At least one filter condition is required"
+      "filterRequired": "At least one filter condition is required",
+      "destinationTemplateRequiresRegex": "Template variables in destination path require a regex filename filter"
     }
   },
   "execution": {

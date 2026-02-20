@@ -72,9 +72,36 @@ rulesets:
 | `name` | string | Yes | ルールセットの表示名 |
 | `enabled` | bool | Yes | 有効/無効フラグ |
 | `source_dir` | string | Yes | 対象フォルダのパス |
-| `destination_dir` | string | Yes | 保存先フォルダのパス |
+| `destination_dir` | string | Yes | 保存先フォルダのパス。`{変数名}` 形式のテンプレート変数を使用可能（後述）|
 | `action` | `"move"` \| `"copy"` | Yes | ファイル操作種別。デフォルト: `"move"` |
 | `overwrite` | bool | Yes | 移動先に同名ファイルが存在する場合に上書きするか |
+
+#### 動的移動先テンプレート
+
+`destination_dir` に `{変数名}` 形式のテンプレート変数を埋め込むと、ファイル名フィルタの正規表現（`match_type: regex`）の**名前付きキャプチャグループ**の値が実行時に代入される。
+
+```yaml
+source_dir: "D:/downloads"
+destination_dir: "D:/sorted/{label}/{author}"
+filters:
+  filename:
+    pattern: '^\((?P<label>[^)]+)\) \[(?P<author>[^]]+)\] .+'
+    match_type: regex
+```
+
+上記の設定で `(book) [john_doe] ihavepen.zip` を処理すると `D:/sorted/book/john_doe/` へ移動する。
+
+**制約・動作仕様：**
+
+| ケース | 動作 |
+|--------|------|
+| `destination_dir` にテンプレート変数がある場合 | `filters.filename.match_type` は `regex` でなければならない（バリデーションエラー） |
+| ファイル名が正規表現にマッチしない | skipped として記録（処理は続行） |
+| テンプレート変数名が正規表現の名前付きグループに存在しない | skipped として記録 |
+| キャプチャ値が空文字 | skipped として記録 |
+| キャプチャ値に Windows パス不正文字（`/ \ : * ? " < > |`）が含まれる | `_` に置換してサニタイズ |
+| テンプレートが解決できた場合 | 解決されたパスのディレクトリを自動作成して移動/コピー |
+| テンプレートなしの従来ルールセット | 変更なし（後方互換） |
 
 #### 並び順について
 
@@ -595,8 +622,8 @@ filo/
 
 | レイヤー | フレームワーク | 対象 | 件数 |
 |---------|--------------|------|------|
-| Layer 1: Rust 単体テスト | Rust 標準テスト | `ruleset.rs`, `filters.rs`, `engine.rs` のロジック | 48件 |
-| Layer 2: Vitest コンポーネントテスト | Vitest + @testing-library/react | UI コンポーネント・Zustand ストア | 28件 |
+| Layer 1: Rust 単体テスト | Rust 標準テスト | `ruleset.rs`, `filters.rs`, `engine.rs` のロジック | 67件 |
+| Layer 2: Vitest コンポーネントテスト | Vitest + @testing-library/react | UI コンポーネント・Zustand ストア | 29件 |
 
 ### 7.2 テスト実行コマンド
 
@@ -638,7 +665,7 @@ npm run test:all
 | 「対象フォルダを開く」クリック → `openPath(source_dir)` が呼ばれる |
 | 「保存先フォルダを開く」クリック → `openPath(destination_dir)` が呼ばれる |
 
-#### `src/components/RulesetEditDialog.test.tsx`（6件）
+#### `src/components/RulesetEditDialog.test.tsx`（7件）
 
 | テスト内容 |
 |-----------|
@@ -648,6 +675,7 @@ npm run test:all
 | 有効なデータで保存 → `onSave` が呼ばれる |
 | 変更なしでキャンセル → confirm なしで `onCancel` が呼ばれる |
 | 変更ありでキャンセル → confirm ダイアログが呼ばれる |
+| 保存先にテンプレート変数あり + 正規表現以外のフィルタで保存 → バリデーションエラーが表示される |
 
 #### `src/store/rulesetStore.test.ts`（5件）
 
@@ -735,7 +763,7 @@ renderWithProviders(ui: React.ReactElement): RenderResult
 以下の機能はv1には含めず、将来的に検討する。
 
 - 自動実行（スケジュール / ファイル監視）
-- ルールセット作成の補助機能
+- ルールセット一括生成ウィザード（フォルダをスキャンして正規表現パターンから複数の静的ルールセットを自動生成）
 - サブフォルダの再帰探索オプション
 - 実行履歴の永続保存・閲覧
 - 日本語・英語以外の言語対応

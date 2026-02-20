@@ -1,6 +1,27 @@
 use crate::ruleset::{Filters, MatchType};
 use chrono::{DateTime, Local};
+use std::collections::HashMap;
 use std::path::Path;
+
+/// ファイル名に対して正規表現を適用し、名前付きキャプチャグループを HashMap で返す。
+/// マッチしない場合・コンパイル失敗は空の HashMap を返す。
+pub fn extract_named_captures(filename: &str, pattern: &str) -> HashMap<String, String> {
+    let re = match regex::Regex::new(pattern) {
+        Ok(r) => r,
+        Err(_) => return HashMap::new(),
+    };
+    let caps = match re.captures(filename) {
+        Some(c) => c,
+        None => return HashMap::new(),
+    };
+    re.capture_names()
+        .flatten()
+        .filter_map(|name| {
+            caps.name(name)
+                .map(|m| (name.to_string(), m.as_str().to_string()))
+        })
+        .collect()
+}
 
 pub fn matches_filters(path: &Path, metadata: &std::fs::Metadata, filters: &Filters) -> bool {
     if let Some(extensions) = &filters.extensions {
@@ -315,5 +336,50 @@ mod tests {
         };
 
         assert!(matches_filters(&path, &meta, &filters));
+    }
+
+    // --- extract_named_captures のテスト ---
+
+    #[test]
+    fn test_extract_named_captures_basic() {
+        let captures = extract_named_captures(
+            "(book) [john_doe] ihavepen.zip",
+            r"^\((?P<label>[^)]+)\) \[(?P<author>[^]]+)\] .+",
+        );
+        assert_eq!(captures.get("label").map(|s| s.as_str()), Some("book"));
+        assert_eq!(captures.get("author").map(|s| s.as_str()), Some("john_doe"));
+    }
+
+    #[test]
+    fn test_extract_named_captures_no_match() {
+        let captures = extract_named_captures(
+            "somefile.txt",
+            r"^\((?P<label>[^)]+)\) \[(?P<author>[^]]+)\] .+",
+        );
+        assert!(captures.is_empty());
+    }
+
+    #[test]
+    fn test_extract_named_captures_unnamed_groups_ignored() {
+        let captures = extract_named_captures("hello_world", r"^(?P<first>[a-z]+)_([a-z]+)$");
+        assert_eq!(captures.len(), 1);
+        assert_eq!(captures.get("first").map(|s| s.as_str()), Some("hello"));
+    }
+
+    #[test]
+    fn test_extract_named_captures_invalid_pattern() {
+        let captures = extract_named_captures("anything", r"[invalid regex");
+        assert!(captures.is_empty());
+    }
+
+    #[test]
+    fn test_extract_named_captures_multiple_groups() {
+        let captures = extract_named_captures(
+            "2025-01-15_report.pdf",
+            r"^(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})_.+",
+        );
+        assert_eq!(captures.get("year").map(|s| s.as_str()), Some("2025"));
+        assert_eq!(captures.get("month").map(|s| s.as_str()), Some("01"));
+        assert_eq!(captures.get("day").map(|s| s.as_str()), Some("15"));
     }
 }
