@@ -18,7 +18,7 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,json}\"",
     "format:rust": "cargo fmt --manifest-path src-tauri/Cargo.toml",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,json}\"",
-    "format:all" : "npm run format && npm run format:rust"
+    "format:all": "npm run format && npm run format:rust"
   },
   "lint-staged": {
     "src/**/*.{ts,tsx}": [

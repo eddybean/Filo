@@ -5,8 +5,8 @@ export async function getRulesets(): Promise<Ruleset[]> {
   return invoke<Ruleset[]>("get_rulesets");
 }
 
-export async function saveRuleset(ruleset: Ruleset): Promise<void> {
-  return invoke("save_ruleset", { ruleset });
+export async function saveRuleset(ruleset: Ruleset): Promise<string> {
+  return invoke<string>("save_ruleset", { ruleset });
 }
 
 export async function deleteRuleset(id: string): Promise<void> {

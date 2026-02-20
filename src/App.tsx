@@ -20,6 +20,7 @@ function App() {
     fetchRulesets,
     saveRuleset,
     deleteRuleset,
+    duplicateRuleset,
     reorderRulesets,
     executeRuleset,
     executeAll,
@@ -208,6 +209,7 @@ function App() {
             onExecute={handleExecute}
             onEdit={(rs) => setEditingRuleset(rs)}
             onDelete={handleDelete}
+            onDuplicate={duplicateRuleset}
             onReorder={reorderRulesets}
             executing={executing}
           />

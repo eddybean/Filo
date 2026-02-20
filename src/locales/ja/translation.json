@@ -19,6 +19,7 @@
     "delete": "削除",
     "deleteConfirm": "ルールセット「{{name}}」を削除しますか？",
     "menu": "メニュー",
+    "duplicate": "複製",
     "openSourceDir": "対象フォルダを開く",
     "openDestinationDir": "保存先フォルダを開く"
   },

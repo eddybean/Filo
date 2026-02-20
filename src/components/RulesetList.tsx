@@ -24,6 +24,7 @@ interface RulesetListProps {
   onExecute: (id: string) => void;
   onEdit: (ruleset: Ruleset) => void;
   onDelete: (id: string) => void;
+  onDuplicate: (id: string) => void;
   onReorder: (ids: string[]) => void;
   executing: boolean;
 }
@@ -58,6 +59,7 @@ export function RulesetList({
   onExecute,
   onEdit,
   onDelete,
+  onDuplicate,
   onReorder,
   executing,
 }: RulesetListProps) {
@@ -102,6 +104,7 @@ export function RulesetList({
               onExecute={onExecute}
               onEdit={onEdit}
               onDelete={onDelete}
+              onDuplicate={onDuplicate}
               executing={executing}
             />
           ))}

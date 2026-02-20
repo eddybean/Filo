@@ -19,6 +19,7 @@
     "delete": "Delete",
     "deleteConfirm": "Delete ruleset \"{{name}}\"?",
     "menu": "Menu",
+    "duplicate": "Duplicate",
     "openSourceDir": "Open source folder",
     "openDestinationDir": "Open destination folder"
   },

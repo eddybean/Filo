@@ -10,6 +10,7 @@ interface RulesetCardProps {
   onExecute: (id: string) => void;
   onEdit: (ruleset: Ruleset) => void;
   onDelete: (id: string) => void;
+  onDuplicate: (id: string) => void;
   executing: boolean;
 }
 
@@ -20,6 +21,7 @@ export function RulesetCard({
   onExecute,
   onEdit,
   onDelete,
+  onDuplicate,
   executing,
 }: RulesetCardProps) {
   const { t } = useTranslation();
@@ -36,6 +38,11 @@ export function RulesetCard({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [menuOpen]);
+
+  function handleDuplicate() {
+    setMenuOpen(false);
+    onDuplicate(ruleset.id);
+  }
 
   async function openSourceDir() {
     setMenuOpen(false);
@@ -163,6 +170,13 @@ export function RulesetCard({
               data-testid="ruleset-menu-dropdown"
               className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-700 rounded-xl shadow-[0_8px_24px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.08)] z-10 py-1"
             >
+              <button
+                data-testid="ruleset-duplicate"
+                onClick={handleDuplicate}
+                className="w-full text-left px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+              >
+                {t("ruleset.duplicate")}
+              </button>
               <button
                 data-testid="ruleset-open-source"
                 onClick={openSourceDir}

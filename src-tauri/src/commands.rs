@@ -72,20 +72,22 @@ pub fn get_rulesets() -> Result<Vec<Ruleset>, String> {
 }
 
 #[tauri::command]
-pub fn save_ruleset(mut ruleset: Ruleset) -> Result<(), String> {
+pub fn save_ruleset(mut ruleset: Ruleset) -> Result<String, String> {
     ruleset.validate().map_err(|e| e.to_string())?;
 
     if ruleset.id.is_empty() {
         ruleset.id = Uuid::new_v4().to_string();
     }
 
+    let id = ruleset.id.clone();
     update_and_save(|file| {
         if let Some(existing) = file.rulesets.iter_mut().find(|r| r.id == ruleset.id) {
             *existing = ruleset;
         } else {
             file.rulesets.push(ruleset);
         }
-    })
+    })?;
+    Ok(id)
 }
 
 #[tauri::command]
