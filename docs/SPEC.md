@@ -149,6 +149,7 @@ rulesets:
 | 編集 | 既存ルールセットの編集ダイアログを開く |
 | 削除 | 確認ダイアログの後、ルールセットを削除。削除ボタンは赤系統の色で表示 |
 | サブメニュー（…） | 各ルールセットカードの「…」ボタンでサブメニューを表示。メニュー外クリックで閉じる |
+| 複製 | サブメニューから選択したルールセットの直下に同じ設定のコピーを挿入。名前は末尾に ` copy1` を付与（既存名と衝突する場合は ` copy2`, ` copy3`, … と連番）。名前が既に ` copyN` で終わる場合はベース名から採番し直す（例: "foo copy1" → "foo copy2"）|
 | 対象フォルダを開く | サブメニューからOSのファイルエクスプローラーで対象フォルダを開く |
 | 保存先フォルダを開く | サブメニューからOSのファイルエクスプローラーで保存先フォルダを開く |
 | インポート | 外部YAMLファイルからルールセットを読み込む |
@@ -416,7 +417,7 @@ Windows 11 の Fluent Design 2.0 を基調とし、現代的なトレンドを�
 | コマンド | 引数 | 戻り値 | 説明 |
 |---------|------|--------|------|
 | `get_rulesets` | なし | `Ruleset[]` | 全ルールセットを取得 |
-| `save_ruleset` | `Ruleset` | `Result<()>` | ルールセットを保存（新規/更新） |
+| `save_ruleset` | `Ruleset` | `Result<String>` | ルールセットを保存（新規/更新）。採番した UUID を返す |
 | `delete_ruleset` | `id: string` | `Result<()>` | ルールセットを削除 |
 | `reorder_rulesets` | `ids: string[]` | `Result<()>` | 並び順を更新 |
 | `execute_ruleset` | `id: string` | `ExecutionResult` | 単一ルールセット実行。処理ファイルごとに `execution-progress` イベントを発火 |
@@ -705,7 +706,7 @@ renderWithProviders(ui: React.ReactElement): RenderResult
 | コンポーネント | 主な `data-testid` |
 |-------------|------------------|
 | `Toolbar` | `toolbar`, `toolbar-create`, `toolbar-execute-all`, `toolbar-import`, `toolbar-export` |
-| `RulesetCard` | `ruleset-card`, `ruleset-toggle`, `ruleset-name`, `ruleset-execute`, `ruleset-edit`, `ruleset-delete`, `ruleset-menu`, `ruleset-menu-dropdown`, `ruleset-open-source`, `ruleset-open-destination` |
+| `RulesetCard` | `ruleset-card`, `ruleset-toggle`, `ruleset-name`, `ruleset-execute`, `ruleset-edit`, `ruleset-delete`, `ruleset-menu`, `ruleset-menu-dropdown`, `ruleset-duplicate`, `ruleset-open-source`, `ruleset-open-destination` |
 | `RulesetEditDialog` | `edit-dialog`, `field-name`, `field-source-dir`, `field-dest-dir`, `btn-save`, `btn-cancel`, `extension-input`, `btn-extension-add`, `validation-errors` |
 | `ExecutionResultDialog` | `result-dialog`, `btn-result-close`, `btn-undo-all` |
 | `LoadingOverlay` | `loading-overlay` |
