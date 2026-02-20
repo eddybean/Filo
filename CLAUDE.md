@@ -109,8 +109,7 @@ Windows環境でコマンドを実行する際は、改行コードが `CRLF` �
 **ソースコードを変更（機能実装・バグ修正・リファクタリング）した場合は、作業完了時に必ず以下を実行してから応答を終了すること：**
 
 ```bash
-npm run format
-npm run format:rust
+npm run format:all
 npx vitest run
 ```
 
