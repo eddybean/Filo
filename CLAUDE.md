@@ -12,15 +12,29 @@ Filo はユーザ定義のルールセットに基づいてファイルを移動
 技術スタック: Tauri v2 (Rust バックエンド) + React 19 + TypeScript フロントエンド。
 詳細な仕様は docs/SPEC.md を参照。
 
-## セットアップ・ビルドスクリプト
+## Toolchain
 
-| スクリプト | Windows | Linux/macOS |
-|-----------|---------|-------------|
-| 環境構築 | `scripts\setup.bat` | `scripts/setup.sh` |
-| 開発サーバ | `scripts\dev.bat` | `npm run tauri dev` |
-| ビルド | `scripts\build.bat` | `npm run tauri build` |
-| テスト | `scripts\test.bat` | `scripts/test.sh` |
-| クリーン | `scripts\clean.bat` | `cargo clean --manifest-path src-tauri/Cargo.toml` |
+mise を使うこと
+
+```bash
+# nodeバージョン指定
+mise use node@25.6.1
+
+# 新規ツール導入後にreshim
+mise reshim
+
+# インストール済tool一覧
+mise list
+```
+
+## Enviroment
+
+秘密情報を除きworkspaceで共有すべき固定の環境変数は mise.toml へ記載すること
+
+```mise.toml
+[env]
+ENV_EXAMPLE = "example"
+```
 
 ## Build & Run Commands
 
@@ -65,6 +79,7 @@ src/                    # React フロントエンド
 
 - **OS**: Windows 11（シェルは bash、cmd.exe ではない）
 - Bash ツールは bash 構文を使うが、Windows 固有の制約がある
+- コマンド実行時にエラーがあり、それを解消するための試行が3回を超えたら中断し、実行したいタスクとエラーを簡潔に説明し今後の対応方針を求める
 
 ### Bash ツールで使ってはいけないコマンド
 
@@ -120,5 +135,4 @@ npx vitest run
 
 # セッション引き継ぎ
 
-- セッション開始時にプロジェクトルートの `.claude/handovers/` ディレクトリを確認し、ファイルが存在すれば最新のものを読み込む
 - セッション終了時や作業の区切りでは `/handover` の実行を促す
