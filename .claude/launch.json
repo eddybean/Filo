@@ -1,0 +1,10 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Filo Dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "tauri", "dev"]
+    }
+  ]
+}

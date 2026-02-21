@@ -133,6 +133,29 @@ describe("RulesetEditDialog", () => {
     expect(screen.queryByTestId("regex-tester-panel")).not.toBeInTheDocument();
   });
 
+  it("変更なしでESCキーを押すと confirm なしで onCancel が呼ばれる", async () => {
+    const { onCancel } = renderDialog();
+    const { confirm } = await import("@tauri-apps/plugin-dialog");
+
+    await userEvent.keyboard("{Escape}");
+
+    expect(onCancel).toHaveBeenCalledOnce();
+    expect(confirm).not.toHaveBeenCalled();
+  });
+
+  it("変更ありでESCキーを押すと confirm が呼ばれる", async () => {
+    const { onCancel } = renderDialog();
+    const { confirm } = await import("@tauri-apps/plugin-dialog");
+
+    await userEvent.type(screen.getByTestId("field-name"), "変更あり");
+    await userEvent.keyboard("{Escape}");
+
+    await waitFor(() => {
+      expect(confirm).toHaveBeenCalledOnce();
+    });
+    expect(onCancel).toHaveBeenCalledOnce();
+  });
+
   it("保存先にテンプレート変数を使い正規表現以外のフィルタで保存するとバリデーションエラーが表示される", async () => {
     renderDialog();
     await userEvent.type(screen.getByTestId("field-name"), "テストルール");

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { confirm } from "@tauri-apps/plugin-dialog";
 import type { Ruleset, Action, MatchType, Filters } from "../lib/types";
@@ -108,17 +108,23 @@ export function RulesetEditDialog({
     }
   }
 
-  function hasChanges(): boolean {
-    return JSON.stringify(form) !== JSON.stringify(initialForm.current);
-  }
-
-  async function handleClose() {
-    if (hasChanges()) {
+  const handleClose = useCallback(async () => {
+    if (JSON.stringify(form) !== JSON.stringify(initialForm.current)) {
       const ok = await confirm(t("editor.discardConfirm"));
       if (!ok) return;
     }
     onCancel();
-  }
+  }, [form, t, onCancel]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        handleClose();
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [handleClose]);
 
   async function selectSource() {
     const path = await onSelectFolder();
@@ -185,52 +191,50 @@ export function RulesetEditDialog({
           </div>
 
           {/* Source / Destination */}
-          <div className="grid grid-cols-[1fr_auto] gap-2">
-            <div>
-              <label className={labelClass}>{t("editor.sourceDir")}</label>
+          <div>
+            <label className={labelClass}>{t("editor.sourceDir")}</label>
+            <div className="relative">
               <input
                 data-testid="field-source-dir"
                 type="text"
                 value={form.source_dir}
                 onChange={(e) => updateField("source_dir", e.target.value)}
-                className={inputClass}
+                className={`${inputClass} pr-9`}
               />
-            </div>
-            <button
-              onClick={selectSource}
-              className="self-end px-2.5 py-1.5 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+              <button
+                onClick={selectSource}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 transition-colors"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"
-                />
-              </svg>
-            </button>
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"
+                  />
+                </svg>
+              </button>
+            </div>
           </div>
 
           <div>
-            <div className="grid grid-cols-[1fr_auto] gap-2">
-              <div>
-                <label className={labelClass}>{t("editor.destinationDir")}</label>
-                <input
-                  data-testid="field-dest-dir"
-                  type="text"
-                  value={form.destination_dir}
-                  onChange={(e) => updateField("destination_dir", e.target.value)}
-                  className={inputClass}
-                />
-              </div>
+            <label className={labelClass}>{t("editor.destinationDir")}</label>
+            <div className="relative">
+              <input
+                data-testid="field-dest-dir"
+                type="text"
+                value={form.destination_dir}
+                onChange={(e) => updateField("destination_dir", e.target.value)}
+                className={`${inputClass} pr-9`}
+              />
               <button
                 onClick={selectDest}
-                className="self-end px-2.5 py-1.5 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 transition-colors"
               >
                 <svg
                   className="w-4 h-4"

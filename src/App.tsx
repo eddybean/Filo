@@ -52,6 +52,19 @@ function App() {
   }, [fetchRulesets]);
 
   useEffect(() => {
+    if (import.meta.env.PROD) {
+      const handler = (e: MouseEvent) => {
+        const target = e.target as HTMLElement;
+        if (target.tagName !== "INPUT" && target.tagName !== "TEXTAREA") {
+          e.preventDefault();
+        }
+      };
+      document.addEventListener("contextmenu", handler);
+      return () => document.removeEventListener("contextmenu", handler);
+    }
+  }, []);
+
+  useEffect(() => {
     const unlisten = listen<{ ruleset_name: string; filename: string }>(
       "execution-progress",
       (event) => {
