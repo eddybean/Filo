@@ -37,20 +37,26 @@ pub fn matches_filters(path: &Path, metadata: &std::fs::Metadata, filters: &Filt
     }
 
     if let Some(created_at) = &filters.created_at {
-        if let Ok(created) = metadata.created() {
-            let created: DateTime<Local> = created.into();
-            if !match_datetime_range(&created, &created_at.start, &created_at.end) {
-                return false;
+        match metadata.created() {
+            Ok(created) => {
+                let created: DateTime<Local> = created.into();
+                if !match_datetime_range(&created, &created_at.start, &created_at.end) {
+                    return false;
+                }
             }
+            Err(_) => return false,
         }
     }
 
     if let Some(modified_at) = &filters.modified_at {
-        if let Ok(modified) = metadata.modified() {
-            let modified: DateTime<Local> = modified.into();
-            if !match_datetime_range(&modified, &modified_at.start, &modified_at.end) {
-                return false;
+        match metadata.modified() {
+            Ok(modified) => {
+                let modified: DateTime<Local> = modified.into();
+                if !match_datetime_range(&modified, &modified_at.start, &modified_at.end) {
+                    return false;
+                }
             }
+            Err(_) => return false,
         }
     }
 

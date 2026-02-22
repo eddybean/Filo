@@ -4,6 +4,33 @@ import { confirm } from "@tauri-apps/plugin-dialog";
 import type { Ruleset, Action, MatchType, Filters } from "../lib/types";
 import { RegexTesterPanel } from "./RegexTesterPanel";
 
+/** RFC3339文字列 → datetime-local入力用文字列 ("YYYY-MM-DDTHH:mm") */
+function rfc3339ToDatetimeLocal(value: string | null): string | null {
+  if (!value) return null;
+  try {
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return null;
+    const pad = (n: number) => n.toString().padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  } catch {
+    return null;
+  }
+}
+
+/** datetime-local入力値 ("YYYY-MM-DDTHH:mm") → RFC3339文字列 (ローカルタイムゾーン付き) */
+function datetimeLocalToRfc3339(value: string | null): string | null {
+  if (!value) return null;
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return null;
+  const offset = -d.getTimezoneOffset();
+  const sign = offset >= 0 ? "+" : "-";
+  const h = Math.floor(Math.abs(offset) / 60)
+    .toString()
+    .padStart(2, "0");
+  const m = (Math.abs(offset) % 60).toString().padStart(2, "0");
+  return `${value}:00${sign}${h}:${m}`;
+}
+
 interface RulesetEditDialogProps {
   ruleset: Ruleset | null; // null = create new
   onSave: (ruleset: Ruleset) => Promise<void>;
@@ -29,6 +56,25 @@ function emptyRuleset(): Ruleset {
   };
 }
 
+/** 保存済みルールセットのRFC3339日時値をフォーム表示用のdatetime-local形式に変換する */
+function toFormRuleset(ruleset: Ruleset): Ruleset {
+  const convertRange = (range: Ruleset["filters"]["created_at"]) => {
+    if (!range) return null;
+    return {
+      start: rfc3339ToDatetimeLocal(range.start),
+      end: rfc3339ToDatetimeLocal(range.end),
+    };
+  };
+  return {
+    ...ruleset,
+    filters: {
+      ...ruleset.filters,
+      created_at: convertRange(ruleset.filters.created_at),
+      modified_at: convertRange(ruleset.filters.modified_at),
+    },
+  };
+}
+
 export function RulesetEditDialog({
   ruleset,
   onSave,
@@ -37,8 +83,8 @@ export function RulesetEditDialog({
 }: RulesetEditDialogProps) {
   const { t } = useTranslation();
   const isNew = !ruleset;
-  const initialForm = useRef<Ruleset>(ruleset ?? emptyRuleset());
-  const [form, setForm] = useState<Ruleset>(ruleset ?? emptyRuleset());
+  const initialForm = useRef<Ruleset>(ruleset ? toFormRuleset(ruleset) : emptyRuleset());
+  const [form, setForm] = useState<Ruleset>(ruleset ? toFormRuleset(ruleset) : emptyRuleset());
   const [extensionInput, setExtensionInput] = useState("");
   const [errors, setErrors] = useState<string[]>([]);
 
@@ -102,7 +148,22 @@ export function RulesetEditDialog({
   async function handleSave() {
     if (!validate()) return;
     try {
-      await onSave(form);
+      const convertRange = (range: Ruleset["filters"]["created_at"]) => {
+        if (!range) return null;
+        return {
+          start: datetimeLocalToRfc3339(range.start),
+          end: datetimeLocalToRfc3339(range.end),
+        };
+      };
+      const rulesetToSave: Ruleset = {
+        ...form,
+        filters: {
+          ...form.filters,
+          created_at: convertRange(form.filters.created_at),
+          modified_at: convertRange(form.filters.modified_at),
+        },
+      };
+      await onSave(rulesetToSave);
     } catch (e) {
       setErrors([String(e)]);
     }
