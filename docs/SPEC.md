@@ -357,6 +357,9 @@ filters:
 │  ░░░░░░░  ┌─────────────────────────────┐  ░░░░░░░  │
 │  ░░░░░░░  │         ◌ 処理中...          │  ░░░░░░░  │
 │  ░░░░░░░  │  画像整理 / screenshot_1.jpg  │  ░░░░░░░  │
+│  ░░░░░░░  │  ████████████░░░░░░░░░░░░░  │  ░░░░░░░  │
+│  ░░░░░░░  │  5 / 12 件      42%  1.2MB/s │  ░░░░░░░  │
+│  ░░░░░░░  │              [中断]           │  ░░░░░░░  │
 │  ░░░░░░░  └─────────────────────────────┘  ░░░░░░░  │
 │  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  │
 └─────────────────────────────────────────────────────┘
@@ -369,6 +372,9 @@ filters:
 | 表示タイミング | 実行ボタン押下直後から実行完了まで |
 | スピナー | アニメーションするスピナーを表示 |
 | 処理中ファイル表示 | バックエンドから `execution-progress` イベントを受信し、「ルールセット名 / ファイル名」形式でリアルタイム表示 |
+| 進捗バー | フィルタを通過したファイルを事前集計し、現在の処理件数 / 総件数をプログレスバーとパーセンテージで表示。一括実行時はルールセット単位（各ルールセットで0→100%リセット） |
+| 処理速度表示 | 成功した各ファイルのバイト数から算出した転送速度（B/s・KB/s・MB/s を自動切替）を表示 |
+| 中断ボタン | 「中断」ボタンをクリックすると確認ダイアログを表示。OKで `cancel_execution` を呼び出し、処理中のファイルが完了した後に残りをスキップ（理由: 「ユーザーによる中断」）して実行結果ダイアログへ遷移 |
 | 操作ブロック | オーバーレイ中はルールセット一覧・ツールバーへの操作が不可（オーバーレイが前面に表示） |
 
 #### アプリ終了防止
@@ -457,13 +463,13 @@ Windows 11 の Fluent Design 2.0 を基調とし、現代的なトレンドを�
 1. source_dir の存在確認
 2. destination_dir の存在確認（存在しない場合は作成）
 3. source_dir 内のファイル一覧取得（サブフォルダは対象外、直下のみ）
-4. 各ファイルに対してフィルタ条件を適用
+4. 各ファイルに対してフィルタ条件を適用し、対象ファイルをすべて事前収集（進捗バーの総件数を確定させるため）
    4a. extensions フィルタ
    4b. filename フィルタ（glob or regex）
    4c. created_at フィルタ
    4d. modified_at フィルタ
    4e. すべてのフィルタがtrueの場合のみ対象
-5. 対象ファイルを destination_dir へ移動またはコピー
+5. 対象ファイルを destination_dir へ移動またはコピー（各ファイル処理後に進捗イベントを発火）
    5a. overwrite=false かつ同名ファイル存在 → スキップ
    5b. overwrite=true かつ同名ファイル存在 → 上書き
    5c. 移動（Move）:
@@ -475,6 +481,7 @@ Windows 11 の Fluent Design 2.0 を基調とし、現代的なトレンドを�
        - コピー失敗・サイズ不一致の場合は destination の残骸ファイルを削除してからエラーを返す
        - コピー失敗時も source ファイルは保護される
    5e. 操作失敗 → エラー記録して続行。エラー種別（権限不足・ディスクフル等）を識別してメッセージを生成
+   5f. 1ファイル処理後にキャンセルフラグを確認。セットされていれば残りのファイルを「ユーザーによる中断」としてスキップして終了
 6. 実行結果を返却
 ```
 
@@ -501,8 +508,9 @@ Windows 11 の Fluent Design 2.0 を基調とし、現代的なトレンドを�
 | `save_ruleset` | `Ruleset` | `Result<String>` | ルールセットを保存（新規/更新）。採番した UUID を返す |
 | `delete_ruleset` | `id: string` | `Result<()>` | ルールセットを削除 |
 | `reorder_rulesets` | `ids: string[]` | `Result<()>` | 並び順を更新 |
-| `execute_ruleset` | `id: string` | `ExecutionResult` | 単一ルールセット実行。処理ファイルごとに `execution-progress` イベントを発火 |
-| `execute_all` | なし | `ExecutionResult[]` | 有効な全ルールセットを順次実行。処理ファイルごとに `execution-progress` イベントを発火 |
+| `execute_ruleset` | `id: string` | `ExecutionResult` | 単一ルールセット実行（非同期）。処理ファイルごとに `execution-progress` イベントを発火 |
+| `execute_all` | なし | `ExecutionResult[]` | 有効な全ルールセットを順次実行（非同期）。処理ファイルごとに `execution-progress` イベントを発火。キャンセル後は未開始のルールセットは結果に含まれない |
+| `cancel_execution` | なし | なし | 実行中断フラグをセット。現在処理中のファイルが完了した後、残りのファイルをスキップして終了 |
 | `undo_file` | `source: string, dest: string` | `Result<()>` | 単一ファイルのUndo |
 | `undo_all` | `files: UndoRequest[]` | `UndoResult[]` | 複数ファイルの一括Undo |
 | `import_rulesets` | `path: string` | `Result<Ruleset[]>` | YAMLファイルからインポート |
@@ -515,7 +523,7 @@ Windows 11 の Fluent Design 2.0 を基調とし、現代的なトレンドを�
 
 | イベント名 | ペイロード | 発火タイミング |
 |-----------|-----------|-------------|
-| `execution-progress` | `{ ruleset_name: string, filename: string }` | ルールセット実行中、フィルタ条件を通過したファイルを処理するたびに発火 |
+| `execution-progress` | `{ ruleset_name: string, filename: string, current: number, total: number, bytes_per_second: number }` | ルールセット実行中、フィルタ条件を通過したファイルを処理するたびに発火 |
 
 ### 4.3 データ型定義（Rust）
 
@@ -579,6 +587,9 @@ struct UndoRequest {
 struct ExecutionProgressPayload {
     ruleset_name: String,
     filename: String,
+    current: usize,           // 現在の処理件数（1始まり）
+    total: usize,             // 対象ファイルの総件数
+    bytes_per_second: f64,    // 転送速度（B/s）。0は計測不能を示す
 }
 ```
 
@@ -679,7 +690,7 @@ filo/
 
 | レイヤー | フレームワーク | 対象 | 件数 |
 |---------|--------------|------|------|
-| Layer 1: Rust 単体テスト | Rust 標準テスト | `ruleset.rs`, `filters.rs`, `engine.rs`, `commands.rs` のロジック | 71件 |
+| Layer 1: Rust 単体テスト | Rust 標準テスト | `ruleset.rs`, `filters.rs`, `engine.rs`, `commands.rs` のロジック | 72件 |
 | Layer 2: Vitest コンポーネントテスト | Vitest + @testing-library/react | UI コンポーネント・Zustand ストア | 46件 |
 
 ### 7.2 テスト実行コマンド
@@ -817,7 +828,7 @@ renderWithProviders(ui: React.ReactElement): RenderResult
 | `RulesetEditDialog` | `edit-dialog`, `field-name`, `field-source-dir`, `field-dest-dir`, `btn-save`, `btn-cancel`, `extension-input`, `btn-extension-add`, `validation-errors` |
 | `RegexTesterPanel` | `regex-tester-panel`, `regex-sample-input`, `regex-syntax-error`, `regex-match-result`, `regex-capture-groups`, `regex-resolved-path`, `regex-load-files-btn`, `regex-file-list`, `regex-match-count` |
 | `ExecutionResultDialog` | `result-dialog`, `btn-result-close`, `btn-undo-all` |
-| `LoadingOverlay` | `loading-overlay` |
+| `LoadingOverlay` | `loading-overlay`, `btn-cancel-execution` |
 
 ---
 
@@ -832,6 +843,7 @@ renderWithProviders(ui: React.ReactElement): RenderResult
 | 実行の安全性 | エラー発生時も残りのファイル処理を継続する |
 | 移動先フォルダ | 存在しない場合は自動作成する |
 | 同時実行 | 同一ルールセットの並行実行は禁止（UIで制御） |
+| ノンブロッキング実行 | ファイル操作は `spawn_blocking` でバックグラウンドスレッドへ移譲し、UIスレッドをブロックしない（Windowsの「応答なし」を防止） |
 | 移動の整合性 | コピー後にバイト数検証を行い、不完全なコピーを検出した場合は移動先の残骸ファイルを削除してから失敗扱いとする。元ファイルは常に保護される |
 | クロスデバイス移動 | 異なるドライブ間の移動は `rename` 失敗（クロスデバイスエラー）のときのみ copy+delete にフォールバックする。権限エラーやディスクフルではフォールバックしない |
 | エラー識別 | ファイル操作失敗時は権限不足・ディスクフル・クロスデバイス等のエラー種別を識別し、ユーザーに明示する |

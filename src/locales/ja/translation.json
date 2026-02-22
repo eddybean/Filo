@@ -70,7 +70,12 @@
   "execution": {
     "processing": "処理中...",
     "processingFile": "{{ruleset}} / {{file}}",
-    "closeWarning": "ファイルを処理中です。アプリを終了しますか？"
+    "closeWarning": "ファイルを処理中です。アプリを終了しますか？",
+    "cancel": "中断",
+    "cancelConfirm": "処理を中断しますか？処理中のファイルが完了した後、残りのファイルはスキップされます。",
+    "cancelledByUser": "ユーザーによる中断",
+    "progress": "{{current}} / {{total}} 件",
+    "speed": "{{speed}}"
   },
   "result": {
     "title": "実行結果",

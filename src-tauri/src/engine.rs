@@ -5,6 +5,8 @@ use std::collections::HashMap;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Instant;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ExecutionStatus {
@@ -162,7 +164,21 @@ fn resolve_destination_template(
     }
 }
 
-pub fn execute_ruleset(ruleset: &Ruleset, on_progress: impl Fn(&str)) -> ExecutionResult {
+/// フィルタを通過したファイルの情報（処理前に列挙済み）
+struct PendingFile {
+    path: PathBuf,
+    filename: String,
+    file_size: u64,
+}
+
+/// `on_progress(filename, current, total, bytes_per_second)` を呼びながらルールセットを実行する。
+/// `cancel_flag` が `true` になると、処理中のファイルが完了した後、残りのファイルを
+/// 「ユーザーによる中断」としてスキップして早期リターンする。
+pub fn execute_ruleset(
+    ruleset: &Ruleset,
+    on_progress: impl Fn(&str, usize, usize, f64),
+    cancel_flag: &AtomicBool,
+) -> ExecutionResult {
     let mut succeeded = Vec::new();
     let mut skipped = Vec::new();
     let mut errors = Vec::new();
@@ -231,14 +247,14 @@ pub fn execute_ruleset(ruleset: &Ruleset, on_progress: impl Fn(&str)) -> Executi
         }
     };
 
+    // フィルタを通過するファイルを事前に列挙して総数を確定する。
+    // メタデータ取得に失敗したファイルはエラーとして記録し、列挙対象から除外する。
+    let mut matching_files: Vec<PendingFile> = Vec::new();
     for entry in entries.flatten() {
         let path = entry.path();
-
-        // Skip directories
         if path.is_dir() {
             continue;
         }
-
         let metadata = match fs::metadata(&path) {
             Ok(m) => m,
             Err(e) => {
@@ -255,93 +271,126 @@ pub fn execute_ruleset(ruleset: &Ruleset, on_progress: impl Fn(&str)) -> Executi
                 continue;
             }
         };
-
-        // Apply filters
         if !matches_filters(&path, &metadata, &ruleset.filters) {
             continue;
         }
-
         let filename = path
             .file_name()
             .unwrap_or_default()
             .to_string_lossy()
             .to_string();
-        on_progress(&filename);
+        matching_files.push(PendingFile {
+            path,
+            filename,
+            file_size: metadata.len(),
+        });
+    }
 
-        // テンプレート変数がある場合はファイル名からキャプチャを取得して解決する
-        let resolved_dir = if use_template {
-            let pattern = ruleset
-                .filters
-                .filename
-                .as_ref()
-                .map(|f| f.pattern.as_str())
-                .unwrap_or("");
-            let caps = extract_named_captures(&filename, pattern);
-            match resolve_destination_template(&ruleset.destination_dir, &caps) {
-                Ok(dir) => PathBuf::from(dir),
-                Err(reason) => {
-                    skipped.push(FileResult {
-                        filename,
-                        source_path: path,
+    let total = matching_files.len();
+    let mut bytes_transferred: u64 = 0;
+    let start_time = Instant::now();
+
+    for (i, pending) in matching_files.iter().enumerate() {
+        let elapsed = start_time.elapsed().as_secs_f64();
+        let bps = if elapsed > 0.0 {
+            bytes_transferred as f64 / elapsed
+        } else {
+            0.0
+        };
+        on_progress(&pending.filename, i + 1, total, bps);
+
+        // ラベル付きブロックで早期脱出しても、末尾のキャンセルチェックに必ず到達する
+        'process: {
+            // テンプレート変数がある場合はファイル名からキャプチャを取得して解決する
+            let resolved_dir = if use_template {
+                let pattern = ruleset
+                    .filters
+                    .filename
+                    .as_ref()
+                    .map(|f| f.pattern.as_str())
+                    .unwrap_or("");
+                let caps = extract_named_captures(&pending.filename, pattern);
+                match resolve_destination_template(&ruleset.destination_dir, &caps) {
+                    Ok(dir) => PathBuf::from(dir),
+                    Err(reason) => {
+                        skipped.push(FileResult {
+                            filename: pending.filename.clone(),
+                            source_path: pending.path.clone(),
+                            destination_path: None,
+                            reason: Some(reason),
+                        });
+                        break 'process;
+                    }
+                }
+            } else {
+                destination_dir.clone()
+            };
+
+            // テンプレートで解決された場合はディレクトリを作成する
+            if use_template {
+                if let Err(e) = fs::create_dir_all(&resolved_dir) {
+                    errors.push(FileResult {
+                        filename: pending.filename.clone(),
+                        source_path: pending.path.clone(),
                         destination_path: None,
-                        reason: Some(reason),
+                        reason: Some(format!("Failed to create destination directory: {}", e)),
                     });
-                    continue;
+                    break 'process;
                 }
             }
-        } else {
-            destination_dir.clone()
-        };
 
-        // テンプレートで解決された場合はディレクトリを作成する
-        if use_template {
-            if let Err(e) = fs::create_dir_all(&resolved_dir) {
-                errors.push(FileResult {
-                    filename,
-                    source_path: path,
+            let dest_path = resolved_dir.join(&pending.filename);
+
+            // Check for existing file
+            if dest_path.exists() && !ruleset.overwrite {
+                skipped.push(FileResult {
+                    filename: pending.filename.clone(),
+                    source_path: pending.path.clone(),
+                    destination_path: Some(dest_path),
+                    reason: Some("File with same name exists at destination".to_string()),
+                });
+                break 'process;
+            }
+
+            // Execute action
+            let result = match ruleset.action {
+                Action::Move => move_file(&pending.path, &dest_path),
+                Action::Copy => copy_and_verify(&pending.path, &dest_path),
+            };
+
+            match result {
+                Ok(()) => {
+                    bytes_transferred += pending.file_size;
+                    succeeded.push(FileResult {
+                        filename: pending.filename.clone(),
+                        source_path: pending.path.clone(),
+                        destination_path: Some(dest_path),
+                        reason: None,
+                    });
+                }
+                Err(e) => {
+                    errors.push(FileResult {
+                        filename: pending.filename.clone(),
+                        source_path: pending.path.clone(),
+                        destination_path: Some(dest_path),
+                        reason: Some(classify_io_error(&e)),
+                    });
+                }
+            }
+        } // end 'process
+
+        // キャンセルチェック: 常にここに到達する。
+        // 処理中のファイルが完了した後、残りのファイルをスキップしてループを抜ける。
+        if cancel_flag.load(Ordering::Relaxed) {
+            for rem in &matching_files[i + 1..] {
+                skipped.push(FileResult {
+                    filename: rem.filename.clone(),
+                    source_path: rem.path.clone(),
                     destination_path: None,
-                    reason: Some(format!("Failed to create destination directory: {}", e)),
-                });
-                continue;
-            }
-        }
-
-        let dest_path = resolved_dir.join(&filename);
-
-        // Check for existing file
-        if dest_path.exists() && !ruleset.overwrite {
-            skipped.push(FileResult {
-                filename,
-                source_path: path,
-                destination_path: Some(dest_path),
-                reason: Some("File with same name exists at destination".to_string()),
-            });
-            continue;
-        }
-
-        // Execute action
-        let result = match ruleset.action {
-            Action::Move => move_file(&path, &dest_path),
-            Action::Copy => copy_and_verify(&path, &dest_path),
-        };
-
-        match result {
-            Ok(()) => {
-                succeeded.push(FileResult {
-                    filename,
-                    source_path: path,
-                    destination_path: Some(dest_path),
-                    reason: None,
+                    reason: Some("Cancelled by user".to_string()),
                 });
             }
-            Err(e) => {
-                errors.push(FileResult {
-                    filename,
-                    source_path: path,
-                    destination_path: Some(dest_path),
-                    reason: Some(classify_io_error(&e)),
-                });
-            }
+            break;
         }
     }
 
@@ -382,6 +431,10 @@ mod tests {
     use super::*;
     use crate::ruleset::{FilenameFilter, Filters, MatchType};
 
+    fn no_cancel() -> AtomicBool {
+        AtomicBool::new(false)
+    }
+
     fn create_test_ruleset(source: &Path, dest: &Path) -> Ruleset {
         Ruleset {
             id: "test-id".to_string(),
@@ -409,7 +462,7 @@ mod tests {
         fs::write(src.path().join("world.txt"), "content2").unwrap();
 
         let ruleset = create_test_ruleset(src.path(), dst.path());
-        let result = execute_ruleset(&ruleset, |_| {});
+        let result = execute_ruleset(&ruleset, |_, _, _, _| {}, &no_cancel());
 
         assert_eq!(result.status, ExecutionStatus::Completed);
         assert_eq!(result.succeeded.len(), 2);
@@ -435,7 +488,7 @@ mod tests {
         let mut ruleset = create_test_ruleset(src.path(), dst.path());
         ruleset.action = Action::Copy;
 
-        let result = execute_ruleset(&ruleset, |_| {});
+        let result = execute_ruleset(&ruleset, |_, _, _, _| {}, &no_cancel());
 
         assert_eq!(result.status, ExecutionStatus::Completed);
         assert_eq!(result.succeeded.len(), 1);
@@ -455,7 +508,7 @@ mod tests {
         fs::write(dst.path().join("exists.txt"), "old content").unwrap();
 
         let ruleset = create_test_ruleset(src.path(), dst.path());
-        let result = execute_ruleset(&ruleset, |_| {});
+        let result = execute_ruleset(&ruleset, |_, _, _, _| {}, &no_cancel());
 
         assert_eq!(result.skipped.len(), 1);
         // Old content should remain
@@ -476,7 +529,7 @@ mod tests {
         let mut ruleset = create_test_ruleset(src.path(), dst.path());
         ruleset.overwrite = true;
 
-        let result = execute_ruleset(&ruleset, |_| {});
+        let result = execute_ruleset(&ruleset, |_, _, _, _| {}, &no_cancel());
 
         assert_eq!(result.succeeded.len(), 1);
         assert_eq!(result.skipped.len(), 0);
@@ -495,7 +548,7 @@ mod tests {
         fs::write(src.path().join("skip.pdf"), "content").unwrap();
 
         let ruleset = create_test_ruleset(src.path(), dst.path());
-        let result = execute_ruleset(&ruleset, |_| {});
+        let result = execute_ruleset(&ruleset, |_, _, _, _| {}, &no_cancel());
 
         assert_eq!(result.succeeded.len(), 1);
         assert_eq!(result.succeeded[0].filename, "match.txt");
@@ -510,7 +563,7 @@ mod tests {
         let non_existent = PathBuf::from("/tmp/filo_test_nonexistent_dir");
 
         let ruleset = create_test_ruleset(&non_existent, dst.path());
-        let result = execute_ruleset(&ruleset, |_| {});
+        let result = execute_ruleset(&ruleset, |_, _, _, _| {}, &no_cancel());
 
         assert_eq!(result.status, ExecutionStatus::Failed);
         assert_eq!(result.errors.len(), 1);
@@ -525,7 +578,7 @@ mod tests {
         fs::write(src.path().join("file.txt"), "content").unwrap();
 
         let ruleset = create_test_ruleset(src.path(), &dst);
-        let result = execute_ruleset(&ruleset, |_| {});
+        let result = execute_ruleset(&ruleset, |_, _, _, _| {}, &no_cancel());
 
         assert_eq!(result.status, ExecutionStatus::Completed);
         assert!(dst.join("file.txt").exists());
@@ -540,7 +593,7 @@ mod tests {
         fs::write(src.path().join("file.txt"), "content").unwrap();
 
         let ruleset = create_test_ruleset(src.path(), dst.path());
-        let result = execute_ruleset(&ruleset, |_| {});
+        let result = execute_ruleset(&ruleset, |_, _, _, _| {}, &no_cancel());
 
         assert_eq!(result.succeeded.len(), 1);
         // Subdirectory should remain
@@ -561,7 +614,7 @@ mod tests {
             match_type: MatchType::Glob,
         });
 
-        let result = execute_ruleset(&ruleset, |_| {});
+        let result = execute_ruleset(&ruleset, |_, _, _, _| {}, &no_cancel());
 
         assert_eq!(result.succeeded.len(), 1);
         assert_eq!(result.succeeded[0].filename, "screenshot_001.txt");
@@ -760,7 +813,7 @@ mod tests {
         let mut ruleset = create_test_ruleset(src.path(), dst.path());
         ruleset.overwrite = true;
 
-        let result = execute_ruleset(&ruleset, |_| {});
+        let result = execute_ruleset(&ruleset, |_, _, _, _| {}, &no_cancel());
 
         assert_eq!(result.status, ExecutionStatus::PartialFailure);
         assert_eq!(result.succeeded.len(), 1);
@@ -873,7 +926,7 @@ mod tests {
             },
         };
 
-        let result = execute_ruleset(&ruleset, |_| {});
+        let result = execute_ruleset(&ruleset, |_, _, _, _| {}, &no_cancel());
 
         assert_eq!(result.status, ExecutionStatus::Completed);
         assert_eq!(result.succeeded.len(), 2);
@@ -922,11 +975,52 @@ mod tests {
             },
         };
 
-        let result = execute_ruleset(&ruleset, |_| {});
+        let result = execute_ruleset(&ruleset, |_, _, _, _| {}, &no_cancel());
 
         assert_eq!(result.skipped.len(), 1);
         assert_eq!(result.succeeded.len(), 0);
         // ファイルは移動されていない
         assert!(src.path().join("(book) [john_doe] ihavepen.zip").exists());
+    }
+
+    // --- キャンセルのテスト ---
+
+    #[test]
+    fn test_cancel_skips_remaining_files() {
+        let src = tempfile::tempdir().unwrap();
+        let dst = tempfile::tempdir().unwrap();
+
+        // ファイルを3件作成
+        fs::write(src.path().join("a.txt"), "content").unwrap();
+        fs::write(src.path().join("b.txt"), "content").unwrap();
+        fs::write(src.path().join("c.txt"), "content").unwrap();
+
+        // 1件目の処理後にキャンセルフラグをセット
+        let cancel = AtomicBool::new(false);
+        let call_count = std::sync::atomic::AtomicUsize::new(0);
+
+        let ruleset = create_test_ruleset(src.path(), dst.path());
+        let result = execute_ruleset(
+            &ruleset,
+            |_, _, _, _| {
+                let count = call_count.fetch_add(1, Ordering::Relaxed);
+                if count == 0 {
+                    // 1件目の on_progress が呼ばれた後にキャンセルをセット
+                    // (実際にキャンセルチェックは file 処理後に行われる)
+                    cancel.store(true, Ordering::SeqCst);
+                }
+            },
+            &cancel,
+        );
+
+        // succeeded + skipped + errors = total (3件)
+        let total = result.succeeded.len() + result.skipped.len() + result.errors.len();
+        assert_eq!(total, 3);
+        // 少なくとも1件はスキップ（キャンセル理由）
+        assert!(result.skipped.iter().any(|f| f
+            .reason
+            .as_deref()
+            .unwrap_or("")
+            .contains("Cancelled")));
     }
 }

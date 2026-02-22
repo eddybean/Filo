@@ -35,6 +35,11 @@ function App() {
   const [executing, setExecuting] = useState(false);
   const [executingFile, setExecutingFile] = useState<string | null>(null);
   const [executingRuleset, setExecutingRuleset] = useState<string | null>(null);
+  const [executingProgress, setExecutingProgress] = useState<{
+    current: number;
+    total: number;
+    bytesPerSecond: number;
+  } | null>(null);
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     return localStorage.getItem("filo-dark") === "true";
   });
@@ -65,13 +70,21 @@ function App() {
   }, []);
 
   useEffect(() => {
-    const unlisten = listen<{ ruleset_name: string; filename: string }>(
-      "execution-progress",
-      (event) => {
-        setExecutingRuleset(event.payload.ruleset_name);
-        setExecutingFile(event.payload.filename);
-      },
-    );
+    const unlisten = listen<{
+      ruleset_name: string;
+      filename: string;
+      current: number;
+      total: number;
+      bytes_per_second: number;
+    }>("execution-progress", (event) => {
+      setExecutingRuleset(event.payload.ruleset_name);
+      setExecutingFile(event.payload.filename);
+      setExecutingProgress({
+        current: event.payload.current,
+        total: event.payload.total,
+        bytesPerSecond: event.payload.bytes_per_second,
+      });
+    });
     return () => {
       unlisten.then((f) => f());
     };
@@ -103,6 +116,13 @@ function App() {
     };
   }, [executing, t]);
 
+  const handleCancelExecution = useCallback(async () => {
+    const ok = await confirm(t("execution.cancelConfirm"), { kind: "warning" });
+    if (ok) {
+      await commands.cancelExecution();
+    }
+  }, [t]);
+
   const handleToggleEnabled = useCallback(
     async (id: string, enabled: boolean) => {
       const rs = rulesets.find((r) => r.id === id);
@@ -118,6 +138,7 @@ function App() {
       setExecuting(true);
       setExecutingFile(null);
       setExecutingRuleset(null);
+      setExecutingProgress(null);
       try {
         const result = await executeRuleset(id);
         setExecutionResults([result]);
@@ -125,6 +146,7 @@ function App() {
         setExecuting(false);
         setExecutingFile(null);
         setExecutingRuleset(null);
+        setExecutingProgress(null);
       }
     },
     [executeRuleset],
@@ -134,6 +156,7 @@ function App() {
     setExecuting(true);
     setExecutingFile(null);
     setExecutingRuleset(null);
+    setExecutingProgress(null);
     try {
       const results = await executeAll();
       if (results.length > 0) {
@@ -143,6 +166,7 @@ function App() {
       setExecuting(false);
       setExecutingFile(null);
       setExecutingRuleset(null);
+      setExecutingProgress(null);
     }
   }, [executeAll]);
 
@@ -256,7 +280,12 @@ function App() {
       )}
 
       {executing && (
-        <LoadingOverlay currentFile={executingFile} currentRuleset={executingRuleset} />
+        <LoadingOverlay
+          currentFile={executingFile}
+          currentRuleset={executingRuleset}
+          progress={executingProgress}
+          onCancel={handleCancelExecution}
+        />
       )}
     </main>
   );
