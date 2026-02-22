@@ -3,13 +3,9 @@ use chrono::{DateTime, Local};
 use std::collections::HashMap;
 use std::path::Path;
 
-/// ファイル名に対して正規表現を適用し、名前付きキャプチャグループを HashMap で返す。
-/// マッチしない場合・コンパイル失敗は空の HashMap を返す。
-pub fn extract_named_captures(filename: &str, pattern: &str) -> HashMap<String, String> {
-    let re = match regex::Regex::new(pattern) {
-        Ok(r) => r,
-        Err(_) => return HashMap::new(),
-    };
+/// ファイル名に対してコンパイル済み正規表現を適用し、名前付きキャプチャグループを HashMap で返す。
+/// マッチしない場合は空の HashMap を返す。
+pub fn extract_named_captures(filename: &str, re: &regex::Regex) -> HashMap<String, String> {
     let caps = match re.captures(filename) {
         Some(c) => c,
         None => return HashMap::new(),
@@ -105,19 +101,25 @@ fn match_datetime_range(
     end: &Option<String>,
 ) -> bool {
     if let Some(start_str) = start {
-        if let Ok(start_dt) = DateTime::parse_from_rfc3339(start_str) {
-            let start_dt: DateTime<Local> = start_dt.into();
-            if value < &start_dt {
-                return false;
+        match DateTime::parse_from_rfc3339(start_str) {
+            Ok(start_dt) => {
+                let start_dt: DateTime<Local> = start_dt.into();
+                if value < &start_dt {
+                    return false;
+                }
             }
+            Err(_) => return false,
         }
     }
     if let Some(end_str) = end {
-        if let Ok(end_dt) = DateTime::parse_from_rfc3339(end_str) {
-            let end_dt: DateTime<Local> = end_dt.into();
-            if value > &end_dt {
-                return false;
+        match DateTime::parse_from_rfc3339(end_str) {
+            Ok(end_dt) => {
+                let end_dt: DateTime<Local> = end_dt.into();
+                if value > &end_dt {
+                    return false;
+                }
             }
+            Err(_) => return false,
         }
     }
     true
@@ -348,44 +350,73 @@ mod tests {
 
     #[test]
     fn test_extract_named_captures_basic() {
-        let captures = extract_named_captures(
-            "(book) [john_doe] ihavepen.zip",
-            r"^\((?P<label>[^)]+)\) \[(?P<author>[^]]+)\] .+",
-        );
+        let re = regex::Regex::new(r"^\((?P<label>[^)]+)\) \[(?P<author>[^]]+)\] .+").unwrap();
+        let captures = extract_named_captures("(book) [john_doe] ihavepen.zip", &re);
         assert_eq!(captures.get("label").map(|s| s.as_str()), Some("book"));
         assert_eq!(captures.get("author").map(|s| s.as_str()), Some("john_doe"));
     }
 
     #[test]
     fn test_extract_named_captures_no_match() {
-        let captures = extract_named_captures(
-            "somefile.txt",
-            r"^\((?P<label>[^)]+)\) \[(?P<author>[^]]+)\] .+",
-        );
+        let re = regex::Regex::new(r"^\((?P<label>[^)]+)\) \[(?P<author>[^]]+)\] .+").unwrap();
+        let captures = extract_named_captures("somefile.txt", &re);
         assert!(captures.is_empty());
     }
 
     #[test]
     fn test_extract_named_captures_unnamed_groups_ignored() {
-        let captures = extract_named_captures("hello_world", r"^(?P<first>[a-z]+)_([a-z]+)$");
+        let re = regex::Regex::new(r"^(?P<first>[a-z]+)_([a-z]+)$").unwrap();
+        let captures = extract_named_captures("hello_world", &re);
         assert_eq!(captures.len(), 1);
         assert_eq!(captures.get("first").map(|s| s.as_str()), Some("hello"));
     }
 
     #[test]
-    fn test_extract_named_captures_invalid_pattern() {
-        let captures = extract_named_captures("anything", r"[invalid regex");
-        assert!(captures.is_empty());
-    }
-
-    #[test]
     fn test_extract_named_captures_multiple_groups() {
-        let captures = extract_named_captures(
-            "2025-01-15_report.pdf",
-            r"^(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})_.+",
-        );
+        let re = regex::Regex::new(r"^(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})_.+").unwrap();
+        let captures = extract_named_captures("2025-01-15_report.pdf", &re);
         assert_eq!(captures.get("year").map(|s| s.as_str()), Some("2025"));
         assert_eq!(captures.get("month").map(|s| s.as_str()), Some("01"));
         assert_eq!(captures.get("day").map(|s| s.as_str()), Some("15"));
+    }
+
+    // --- match_datetime_range のパースエラーテスト ---
+
+    #[test]
+    fn test_match_datetime_range_invalid_start_returns_false() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = create_test_file(dir.path(), "file.txt");
+        let meta = fs::metadata(&path).unwrap();
+
+        let filters = Filters {
+            extensions: None,
+            filename: None,
+            created_at: None,
+            modified_at: Some(DateTimeRange {
+                start: Some("invalid-date".to_string()),
+                end: None,
+            }),
+        };
+
+        assert!(!matches_filters(&path, &meta, &filters));
+    }
+
+    #[test]
+    fn test_match_datetime_range_invalid_end_returns_false() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = create_test_file(dir.path(), "file.txt");
+        let meta = fs::metadata(&path).unwrap();
+
+        let filters = Filters {
+            extensions: None,
+            filename: None,
+            created_at: None,
+            modified_at: Some(DateTimeRange {
+                start: None,
+                end: Some("not-a-date".to_string()),
+            }),
+        };
+
+        assert!(!matches_filters(&path, &meta, &filters));
     }
 }

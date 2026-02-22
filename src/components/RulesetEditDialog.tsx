@@ -84,7 +84,9 @@ export function RulesetEditDialog({
   const { t } = useTranslation();
   const isNew = !ruleset;
   const initialForm = useRef<Ruleset>(ruleset ? toFormRuleset(ruleset) : emptyRuleset());
-  const [form, setForm] = useState<Ruleset>(ruleset ? toFormRuleset(ruleset) : emptyRuleset());
+  const [form, setForm] = useState<Ruleset>(
+    ruleset ? toFormRuleset(ruleset) : emptyRuleset(),
+  );
   const [extensionInput, setExtensionInput] = useState("");
   const [errors, setErrors] = useState<string[]>([]);
 

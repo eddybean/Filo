@@ -1,3 +1,4 @@
+use chrono::DateTime;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -89,6 +90,19 @@ impl Filters {
     }
 }
 
+fn validate_datetime_range(range: &DateTimeRange) -> Result<(), RulesetError> {
+    if let Some(start) = &range.start {
+        DateTime::parse_from_rfc3339(start).map_err(|_| {
+            RulesetError::Validation(format!("invalid datetime format: '{}'", start))
+        })?;
+    }
+    if let Some(end) = &range.end {
+        DateTime::parse_from_rfc3339(end)
+            .map_err(|_| RulesetError::Validation(format!("invalid datetime format: '{}'", end)))?;
+    }
+    Ok(())
+}
+
 impl Ruleset {
     pub fn validate(&self) -> Result<(), RulesetError> {
         if self.name.trim().is_empty() {
@@ -121,6 +135,13 @@ impl Ruleset {
                         .into(),
                 ));
             }
+        }
+        // datetime フィルタの形式を検証
+        if let Some(created_at) = &self.filters.created_at {
+            validate_datetime_range(created_at)?;
+        }
+        if let Some(modified_at) = &self.filters.modified_at {
+            validate_datetime_range(modified_at)?;
         }
         Ok(())
     }
