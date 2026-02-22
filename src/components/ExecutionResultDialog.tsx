@@ -18,20 +18,28 @@ export function ExecutionResultDialog({ results, onClose }: ExecutionResultDialo
       data-testid="result-dialog"
       className="fixed inset-0 bg-black/40 dark:bg-black/60 flex items-center justify-center z-50 backdrop-blur-[6px]"
     >
-      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.25),0_8px_16px_rgba(0,0,0,0.10)] w-full max-w-2xl max-h-[80vh] overflow-y-auto border border-slate-200 dark:border-slate-700/60">
-        <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.25),0_8px_16px_rgba(0,0,0,0.10)] w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden border border-slate-200 dark:border-slate-700/60">
+        <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between flex-none">
           <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
             {t("result.title")}
           </h2>
+          <button
+            data-testid="btn-result-close-header"
+            onClick={onClose}
+            aria-label={t("result.close")}
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-lg leading-none"
+          >
+            ×
+          </button>
         </div>
 
-        <div className="px-5 py-4 space-y-6">
+        <div className="px-5 py-4 space-y-6 flex-1 overflow-y-auto">
           {results.map((result) => (
             <SingleResult key={result.ruleset_id} result={result} />
           ))}
         </div>
 
-        <div className="flex justify-end px-5 py-4 border-t border-slate-200 dark:border-slate-800">
+        <div className="flex justify-end px-5 py-4 border-t border-slate-200 dark:border-slate-800 flex-none">
           <button
             data-testid="btn-result-close"
             onClick={onClose}
