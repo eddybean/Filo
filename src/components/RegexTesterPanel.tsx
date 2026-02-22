@@ -18,7 +18,7 @@ function buildJsRegex(pattern: string): RegexBuildResult {
   try {
     const jsPattern = pattern
       .replace(/\(\?P</g, "(?<") // Rust named group (?P<name>...) → JS (?<name>...)
-      .replace(/\[\^\]]/g, "[^\\]]"); // Rust [^]] (not ]) → JS [^\]]
+      .replace(/\[\^]/g, "[^\\]"); // Rust [^]... (] as first char in negated class) → JS [^\]...
     return { regex: new RegExp(jsPattern), error: null };
   } catch (e) {
     return { regex: null, error: (e as Error).message };

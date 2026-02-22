@@ -6,7 +6,15 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::OnceLock;
 use std::time::Instant;
+
+static TEMPLATE_VAR_RE: OnceLock<regex::Regex> = OnceLock::new();
+
+fn get_template_var_re() -> &'static regex::Regex {
+    TEMPLATE_VAR_RE
+        .get_or_init(|| regex::Regex::new(r"\{([^}]+)\}").expect("static pattern is valid"))
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ExecutionStatus {
@@ -135,7 +143,7 @@ fn resolve_destination_template(
     template: &str,
     captures: &HashMap<String, String>,
 ) -> Result<String, String> {
-    let re = regex::Regex::new(r"\{([^}]+)\}").expect("static pattern is valid");
+    let re = get_template_var_re();
     let mut error: Option<String> = None;
     let result = re.replace_all(template, |caps: &regex::Captures| {
         let var_name = &caps[1];
@@ -290,6 +298,17 @@ pub fn execute_ruleset(
     let mut bytes_transferred: u64 = 0;
     let start_time = Instant::now();
 
+    // テンプレート変数がある場合、ファイル名フィルタのパターンをループ外で一度だけコンパイルする
+    let filename_regex: Option<regex::Regex> = if use_template {
+        ruleset
+            .filters
+            .filename
+            .as_ref()
+            .and_then(|f| regex::Regex::new(&f.pattern).ok())
+    } else {
+        None
+    };
+
     for (i, pending) in matching_files.iter().enumerate() {
         let elapsed = start_time.elapsed().as_secs_f64();
         let bps = if elapsed > 0.0 {
@@ -303,13 +322,11 @@ pub fn execute_ruleset(
         'process: {
             // テンプレート変数がある場合はファイル名からキャプチャを取得して解決する
             let resolved_dir = if use_template {
-                let pattern = ruleset
-                    .filters
-                    .filename
-                    .as_ref()
-                    .map(|f| f.pattern.as_str())
-                    .unwrap_or("");
-                let caps = extract_named_captures(&pending.filename, pattern);
+                let caps = if let Some(re) = filename_regex.as_ref() {
+                    extract_named_captures(&pending.filename, re)
+                } else {
+                    HashMap::new()
+                };
                 match resolve_destination_template(&ruleset.destination_dir, &caps) {
                     Ok(dir) => PathBuf::from(dir),
                     Err(reason) => {
@@ -512,6 +529,29 @@ mod tests {
 
         assert_eq!(result.skipped.len(), 1);
         // Old content should remain
+        assert_eq!(
+            fs::read_to_string(dst.path().join("exists.txt")).unwrap(),
+            "old content"
+        );
+    }
+
+    #[test]
+    fn test_copy_skip_when_overwrite_disabled() {
+        let src = tempfile::tempdir().unwrap();
+        let dst = tempfile::tempdir().unwrap();
+
+        fs::write(src.path().join("exists.txt"), "new content").unwrap();
+        fs::write(dst.path().join("exists.txt"), "old content").unwrap();
+
+        let mut ruleset = create_test_ruleset(src.path(), dst.path());
+        ruleset.action = Action::Copy;
+
+        let result = execute_ruleset(&ruleset, |_, _, _, _| {}, &no_cancel());
+
+        assert_eq!(result.skipped.len(), 1);
+        // コピー元ファイルは残っている
+        assert!(src.path().join("exists.txt").exists());
+        // コピー先の古い内容が保護されている
         assert_eq!(
             fs::read_to_string(dst.path().join("exists.txt")).unwrap(),
             "old content"
