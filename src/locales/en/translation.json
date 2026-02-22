@@ -70,7 +70,12 @@
   "execution": {
     "processing": "Processing...",
     "processingFile": "{{ruleset}} / {{file}}",
-    "closeWarning": "Files are being processed. Close the app?"
+    "closeWarning": "Files are being processed. Close the app?",
+    "cancel": "Cancel",
+    "cancelConfirm": "Cancel the operation? The current file will finish processing, then remaining files will be skipped.",
+    "cancelledByUser": "Cancelled by user",
+    "progress": "{{current}} / {{total}} files",
+    "speed": "{{speed}}"
   },
   "result": {
     "title": "Execution Result",

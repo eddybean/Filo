@@ -15,6 +15,7 @@ pub fn run() {
             commands::reorder_rulesets,
             commands::execute_ruleset,
             commands::execute_all,
+            commands::cancel_execution,
             commands::undo_file,
             commands::undo_all,
             commands::import_rulesets,

@@ -25,6 +25,10 @@ export async function executeAll(): Promise<ExecutionResult[]> {
   return invoke<ExecutionResult[]>("execute_all");
 }
 
+export async function cancelExecution(): Promise<void> {
+  return invoke("cancel_execution");
+}
+
 export async function undoFile(source: string, dest: string): Promise<void> {
   return invoke("undo_file", { source, dest });
 }

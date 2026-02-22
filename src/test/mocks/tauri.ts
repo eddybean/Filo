@@ -9,6 +9,7 @@ export type IPCOverrides = {
   reorder_rulesets?: (args: { ids: string[] }) => null;
   execute_ruleset?: (args: { id: string }) => ExecutionResult;
   execute_all?: () => ExecutionResult[];
+  cancel_execution?: () => null;
   undo_file?: (args: { source: string; dest: string }) => null;
   undo_all?: (args: unknown) => Array<{ Ok: null }>;
   import_rulesets?: (args: { path: string }) => Ruleset[];
@@ -23,6 +24,7 @@ export function setupTauriMocks(overrides?: IPCOverrides): void {
     reorder_rulesets: () => null,
     execute_ruleset: () => defaultExecutionResult,
     execute_all: () => [defaultExecutionResult],
+    cancel_execution: () => null,
     undo_file: () => null,
     undo_all: () => [{ Ok: null }],
     import_rulesets: () => [defaultRuleset],

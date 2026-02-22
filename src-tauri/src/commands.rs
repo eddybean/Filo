@@ -2,6 +2,7 @@ use crate::engine::{self, ExecutionResult, UndoRequest};
 use crate::ruleset::{Ruleset, RulesetFile};
 use serde::Serialize;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use tauri::Emitter;
 use uuid::Uuid;
@@ -10,9 +11,16 @@ use uuid::Uuid;
 struct ExecutionProgressPayload {
     ruleset_name: String,
     filename: String,
+    current: usize,
+    total: usize,
+    bytes_per_second: f64,
 }
 
 static RULESETS: Mutex<Option<(PathBuf, RulesetFile)>> = Mutex::new(None);
+
+/// 実行中断フラグ。execute_ruleset / execute_all の開始時に false にリセットされ、
+/// cancel_execution コマンドで true にセットされる。
+static CANCEL_FLAG: AtomicBool = AtomicBool::new(false);
 
 fn default_rulesets_path() -> PathBuf {
     dirs::config_dir()
@@ -110,49 +118,93 @@ pub fn reorder_rulesets(ids: Vec<String>) -> Result<(), String> {
     })
 }
 
+/// 指定ルールセットを非同期で実行する。
+/// UI スレッドをブロックしないよう spawn_blocking でバックグラウンドスレッドに移譲する。
 #[tauri::command]
-pub fn execute_ruleset(app: tauri::AppHandle, id: String) -> Result<ExecutionResult, String> {
+pub async fn execute_ruleset(app: tauri::AppHandle, id: String) -> Result<ExecutionResult, String> {
     let (_, file) = load_rulesets()?;
     let ruleset = file
         .rulesets
         .iter()
         .find(|r| r.id == id)
-        .ok_or_else(|| format!("Ruleset not found: {}", id))?;
-    let ruleset_name = ruleset.name.clone();
+        .ok_or_else(|| format!("Ruleset not found: {}", id))?
+        .clone();
 
-    Ok(engine::execute_ruleset(ruleset, |filename| {
-        let _ = app.emit(
-            "execution-progress",
-            ExecutionProgressPayload {
-                ruleset_name: ruleset_name.clone(),
-                filename: filename.to_string(),
-            },
-        );
-    }))
-}
-
-#[tauri::command]
-pub fn execute_all(app: tauri::AppHandle) -> Result<Vec<ExecutionResult>, String> {
-    let (_, file) = load_rulesets()?;
-    let results: Vec<ExecutionResult> = file
-        .rulesets
-        .iter()
-        .filter(|r| r.enabled)
-        .map(|ruleset| {
-            let ruleset_name = ruleset.name.clone();
-            engine::execute_ruleset(ruleset, |filename| {
+    tauri::async_runtime::spawn_blocking(move || {
+        // async コンテキストと spawn_blocking 開始の間の競合を避けるため、
+        // フラグのリセットをブロッキングスレッド内の先頭で行う。
+        CANCEL_FLAG.store(false, Ordering::SeqCst);
+        let ruleset_name = ruleset.name.clone();
+        engine::execute_ruleset(
+            &ruleset,
+            |filename, current, total, bps| {
                 let _ = app.emit(
                     "execution-progress",
                     ExecutionProgressPayload {
                         ruleset_name: ruleset_name.clone(),
                         filename: filename.to_string(),
+                        current,
+                        total,
+                        bytes_per_second: bps,
                     },
                 );
-            })
-        })
-        .collect();
+            },
+            &CANCEL_FLAG,
+        )
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
 
-    Ok(results)
+/// 有効なルールセットをすべて順に実行する。
+/// キャンセルフラグがセットされると、現在のルールセットの処理中ファイルが完了した後に停止する。
+/// 未開始のルールセットは結果に含まれない。
+#[tauri::command]
+pub async fn execute_all(app: tauri::AppHandle) -> Result<Vec<ExecutionResult>, String> {
+    let (_, file) = load_rulesets()?;
+    let rulesets: Vec<Ruleset> = file.rulesets.into_iter().filter(|r| r.enabled).collect();
+
+    tauri::async_runtime::spawn_blocking(move || {
+        // async コンテキストと spawn_blocking 開始の間の競合を避けるため、
+        // フラグのリセットをブロッキングスレッド内の先頭で行う。
+        CANCEL_FLAG.store(false, Ordering::SeqCst);
+        let mut results = Vec::new();
+        for ruleset in &rulesets {
+            // ルールセット開始前にキャンセルをチェック
+            if CANCEL_FLAG.load(Ordering::Relaxed) {
+                break;
+            }
+            let ruleset_name = ruleset.name.clone();
+            let app = app.clone();
+            let result = engine::execute_ruleset(
+                ruleset,
+                |filename, current, total, bps| {
+                    let _ = app.emit(
+                        "execution-progress",
+                        ExecutionProgressPayload {
+                            ruleset_name: ruleset_name.clone(),
+                            filename: filename.to_string(),
+                            current,
+                            total,
+                            bytes_per_second: bps,
+                        },
+                    );
+                },
+                &CANCEL_FLAG,
+            );
+            results.push(result);
+        }
+        results
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
+/// 実行を中断するよう要求する。
+/// 処理中のファイルが完了した後、残りのファイルはスキップされる。
+#[tauri::command]
+pub fn cancel_execution() {
+    CANCEL_FLAG.store(true, Ordering::SeqCst);
 }
 
 #[tauri::command]
