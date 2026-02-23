@@ -43,6 +43,7 @@
     "modifiedAt": "Modified At",
     "dateStart": "Start",
     "dateEnd": "End",
+    "dateClear": "Clear date",
     "close": "Close",
     "discardConfirm": "Unsaved changes will be discarded. Are you sure?",
     "save": "Save",
@@ -64,7 +65,8 @@
       "sourceDirRequired": "Source folder is required",
       "destinationDirRequired": "Destination folder is required",
       "filterRequired": "At least one filter condition is required",
-      "destinationTemplateRequiresRegex": "Template variables in destination path require a regex filename filter"
+      "destinationTemplateRequiresRegex": "Template variables in destination path require a regex filename filter",
+      "invalidDatetime": "One or more date fields contain an invalid value"
     }
   },
   "execution": {
