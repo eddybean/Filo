@@ -91,6 +91,7 @@ export function RulesetEditDialog({
   const [extensionInput, setExtensionInput] = useState("");
   const [errors, setErrors] = useState<string[]>([]);
   const dateTimeRefs = useRef<Partial<Record<string, HTMLInputElement | null>>>({});
+  const handleDismissErrors = useCallback(() => setErrors([]), []);
 
   function updateField<K extends keyof Ruleset>(key: K, value: Ruleset[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -508,6 +509,8 @@ export function RulesetEditDialog({
                           <button
                             aria-label={t("editor.dateClear")}
                             onClick={() => {
+                              const refEl = dateTimeRefs.current[`${field}_start`];
+                              if (refEl) refEl.value = "";
                               const end = form.filters[field]?.end ?? null;
                               updateFilters({
                                 [field]: end ? { start: null, end } : null,
@@ -548,6 +551,8 @@ export function RulesetEditDialog({
                           <button
                             aria-label={t("editor.dateClear")}
                             onClick={() => {
+                              const refEl = dateTimeRefs.current[`${field}_end`];
+                              if (refEl) refEl.value = "";
                               const start = form.filters[field]?.start ?? null;
                               updateFilters({
                                 [field]: start ? { start, end: null } : null,
@@ -584,7 +589,7 @@ export function RulesetEditDialog({
           </div>
         </div>
       </div>
-      <Toast messages={errors} onDismiss={() => setErrors([])} />
+      <Toast messages={errors} onDismiss={handleDismissErrors} />
     </>
   );
 }
