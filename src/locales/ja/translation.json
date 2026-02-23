@@ -43,6 +43,7 @@
     "modifiedAt": "更新日時",
     "dateStart": "開始",
     "dateEnd": "終了",
+    "dateClear": "日時をクリア",
     "close": "閉じる",
     "discardConfirm": "入力中の内容が破棄されます。よろしいですか？",
     "save": "保存",
@@ -64,7 +65,8 @@
       "sourceDirRequired": "対象フォルダを指定してください",
       "destinationDirRequired": "保存先フォルダを指定してください",
       "filterRequired": "フィルタ条件を1つ以上指定してください",
-      "destinationTemplateRequiresRegex": "保存先パスにテンプレート変数を使う場合、ファイル名フィルタに正規表現を指定してください"
+      "destinationTemplateRequiresRegex": "保存先パスにテンプレート変数を使う場合、ファイル名フィルタに正規表現を指定してください",
+      "invalidDatetime": "日時フィールドに無効な値が入力されています"
     }
   },
   "execution": {

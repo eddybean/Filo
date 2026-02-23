@@ -208,18 +208,25 @@ pub fn cancel_execution() {
 }
 
 #[tauri::command]
-pub fn undo_file(source: String, dest: String) -> Result<(), String> {
-    engine::undo_file_move(Path::new(&source), Path::new(&dest))
+pub async fn undo_file(source: String, dest: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        engine::undo_file_move(Path::new(&source), Path::new(&dest))
+    })
+    .await
+    .map_err(|e| e.to_string())
+    .and_then(|r| r)
 }
 
 #[tauri::command]
-pub fn undo_all(files: Vec<UndoRequest>) -> Result<Vec<Result<(), String>>, String> {
-    let results = files
-        .iter()
-        .map(|req| engine::undo_file_move(&req.source_path, &req.destination_path))
-        .collect();
-
-    Ok(results)
+pub async fn undo_all(files: Vec<UndoRequest>) -> Result<Vec<Result<(), String>>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        files
+            .iter()
+            .map(|req| engine::undo_file_move(&req.source_path, &req.destination_path))
+            .collect::<Vec<_>>()
+    })
+    .await
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
