@@ -64,30 +64,29 @@ fn is_cross_device_error(err: &io::Error) -> bool {
     err.kind() == io::ErrorKind::CrossesDevices
 }
 
-fn copy_and_verify(src: &Path, dest: &Path) -> io::Result<()> {
-    let expected_len = fs::metadata(src)?.len();
+fn copy_and_verify(src: &Path, dest: &Path, expected_size: u64) -> io::Result<()> {
     let copied = fs::copy(src, dest).map_err(|e| {
         let _ = fs::remove_file(dest);
         e
     })?;
-    if copied != expected_len {
+    if copied != expected_size {
         let _ = fs::remove_file(dest);
         return Err(io::Error::new(
             io::ErrorKind::Other,
             format!(
                 "Copy incomplete: expected {} bytes, got {} bytes",
-                expected_len, copied
+                expected_size, copied
             ),
         ));
     }
     Ok(())
 }
 
-fn move_file(src: &Path, dest: &Path) -> io::Result<()> {
+fn move_file(src: &Path, dest: &Path, file_size: u64) -> io::Result<()> {
     match fs::rename(src, dest) {
         Ok(()) => Ok(()),
         Err(e) if is_cross_device_error(&e) => {
-            copy_and_verify(src, dest)?;
+            copy_and_verify(src, dest, file_size)?;
             fs::remove_file(src)
         }
         Err(e) => Err(e),
@@ -297,6 +296,8 @@ pub fn execute_ruleset(
     let total = matching_files.len();
     let mut bytes_transferred: u64 = 0;
     let start_time = Instant::now();
+    let mut last_progress_emit: Option<Instant> = None;
+    const PROGRESS_THROTTLE_MS: u128 = 100;
 
     // テンプレート変数がある場合、ファイル名フィルタのパターンをループ外で一度だけコンパイルする
     let filename_regex: Option<regex::Regex> = if use_template {
@@ -309,6 +310,9 @@ pub fn execute_ruleset(
         None
     };
 
+    // テンプレートモードで create_dir_all の重複呼び出しを避けるキャッシュ
+    let mut created_dirs: std::collections::HashSet<PathBuf> = std::collections::HashSet::new();
+
     for (i, pending) in matching_files.iter().enumerate() {
         let elapsed = start_time.elapsed().as_secs_f64();
         let bps = if elapsed > 0.0 {
@@ -316,7 +320,15 @@ pub fn execute_ruleset(
         } else {
             0.0
         };
-        on_progress(&pending.filename, i + 1, total, bps);
+        // 初回・100ms経過・最終ファイルのいずれかで進捗通知する
+        let now = Instant::now();
+        let should_emit = last_progress_emit
+            .map_or(true, |t| now.duration_since(t).as_millis() >= PROGRESS_THROTTLE_MS)
+            || i + 1 == total;
+        if should_emit {
+            on_progress(&pending.filename, i + 1, total, bps);
+            last_progress_emit = Some(now);
+        }
 
         // ラベル付きブロックで早期脱出しても、末尾のキャンセルチェックに必ず到達する
         'process: {
@@ -343,8 +355,8 @@ pub fn execute_ruleset(
                 destination_dir.clone()
             };
 
-            // テンプレートで解決された場合はディレクトリを作成する
-            if use_template {
+            // テンプレートで解決された場合はディレクトリを作成する（キャッシュで重複呼び出しを回避）
+            if use_template && !created_dirs.contains(&resolved_dir) {
                 if let Err(e) = fs::create_dir_all(&resolved_dir) {
                     errors.push(FileResult {
                         filename: pending.filename.clone(),
@@ -354,6 +366,7 @@ pub fn execute_ruleset(
                     });
                     break 'process;
                 }
+                created_dirs.insert(resolved_dir.clone());
             }
 
             let dest_path = resolved_dir.join(&pending.filename);
@@ -371,8 +384,8 @@ pub fn execute_ruleset(
 
             // Execute action
             let result = match ruleset.action {
-                Action::Move => move_file(&pending.path, &dest_path),
-                Action::Copy => copy_and_verify(&pending.path, &dest_path),
+                Action::Move => move_file(&pending.path, &dest_path, pending.file_size),
+                Action::Copy => copy_and_verify(&pending.path, &dest_path, pending.file_size),
             };
 
             match result {
@@ -440,7 +453,10 @@ pub fn undo_file_move(source_path: &Path, destination_path: &Path) -> Result<(),
         fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {}", e))?;
     }
 
-    move_file(destination_path, source_path).map_err(|e| classify_io_error(&e))
+    let file_size = fs::metadata(destination_path)
+        .map(|m| m.len())
+        .unwrap_or(0);
+    move_file(destination_path, source_path, file_size).map_err(|e| classify_io_error(&e))
 }
 
 #[cfg(test)]
@@ -727,7 +743,7 @@ mod tests {
         let dst = dst_dir.path().join("file.txt");
 
         fs::write(&src, "hello world").unwrap();
-        copy_and_verify(&src, &dst).unwrap();
+        copy_and_verify(&src, &dst, 11).unwrap();
 
         assert!(src.exists(), "src should still exist after copy");
         assert_eq!(fs::read_to_string(&dst).unwrap(), "hello world");
@@ -739,7 +755,7 @@ mod tests {
         let nonexistent_src = dst_dir.path().join("nonexistent.txt");
         let dst = dst_dir.path().join("output.txt");
 
-        let result = copy_and_verify(&nonexistent_src, &dst);
+        let result = copy_and_verify(&nonexistent_src, &dst, 0);
         assert!(result.is_err());
         assert!(!dst.exists(), "dst should not exist after failed copy");
     }
@@ -751,7 +767,7 @@ mod tests {
         let dst = dir.path().join("dst.txt");
 
         fs::write(&src, "content").unwrap();
-        move_file(&src, &dst).unwrap();
+        move_file(&src, &dst, 7).unwrap();
 
         assert!(!src.exists(), "src should be gone after move");
         assert_eq!(fs::read_to_string(&dst).unwrap(), "content");
@@ -800,7 +816,7 @@ mod tests {
         let dst = dst_dir.path().join("empty.txt");
 
         fs::write(&src, b"").unwrap();
-        copy_and_verify(&src, &dst).unwrap();
+        copy_and_verify(&src, &dst, 0).unwrap();
 
         assert_eq!(fs::metadata(&dst).unwrap().len(), 0);
     }
@@ -816,7 +832,7 @@ mod tests {
         // 存在しない中間ディレクトリを含む dest パス → fs::copy が失敗する
         let dst = src_dir.path().join("nonexistent_subdir").join("file.txt");
 
-        let result = copy_and_verify(&src, &dst);
+        let result = copy_and_verify(&src, &dst, 4);
         assert!(result.is_err());
         assert!(!dst.exists(), "partial dest should not exist");
         // src は安全に残っていること
@@ -831,7 +847,7 @@ mod tests {
         let src = dir.path().join("nonexistent.txt");
         let dst = dir.path().join("dst.txt");
 
-        let result = move_file(&src, &dst);
+        let result = move_file(&src, &dst, 0);
         assert!(result.is_err());
         // フォールバックで copy が試みられていないので dst は存在しない
         assert!(!dst.exists(), "dst must not be created on move failure");
