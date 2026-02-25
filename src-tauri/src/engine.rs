@@ -64,8 +64,46 @@ fn is_cross_device_error(err: &io::Error) -> bool {
     err.kind() == io::ErrorKind::CrossesDevices
 }
 
+/// Windows: CopyFile2 で SMB 圧縮転送フラグ付きコピーを実行し、コピー後の宛先サイズを返す。
+/// COPY_FILE_REQUEST_COMPRESSED_TRAFFIC (0x10000000) は Windows 10 v19041+ でのみ有効。
+/// SMB サーバーが非対応の場合は無視され、通常コピーにフォールバックするため安全。
+#[cfg(target_os = "windows")]
+fn platform_copy(src: &Path, dest: &Path) -> io::Result<u64> {
+    use std::os::windows::ffi::OsStrExt;
+    use windows_sys::Win32::Storage::FileSystem::{CopyFile2, COPYFILE2_EXTENDED_PARAMETERS};
+
+    const COPY_FILE_REQUEST_COMPRESSED_TRAFFIC: u32 = 0x1000_0000;
+
+    let src_wide: Vec<u16> = src.as_os_str().encode_wide().chain(Some(0)).collect();
+    let dest_wide: Vec<u16> = dest.as_os_str().encode_wide().chain(Some(0)).collect();
+
+    let params = COPYFILE2_EXTENDED_PARAMETERS {
+        dwSize: std::mem::size_of::<COPYFILE2_EXTENDED_PARAMETERS>() as u32,
+        dwCopyFlags: COPY_FILE_REQUEST_COMPRESSED_TRAFFIC,
+        pfCancel: std::ptr::null_mut(),
+        pProgressRoutine: None,
+        pvCallbackContext: std::ptr::null_mut(),
+    };
+
+    // Safety: src_wide と dest_wide はヌル終端ワイド文字列。params は有効な構造体。
+    let hr = unsafe { CopyFile2(src_wide.as_ptr(), dest_wide.as_ptr(), &params) };
+
+    if hr < 0 {
+        // HRESULT_CODE(hr) = hr & 0xFFFF で Win32 エラーコードを取得
+        return Err(io::Error::from_raw_os_error(hr & 0x0000_FFFF));
+    }
+
+    // CopyFile2 はバイト数を返さないためコピー後の宛先サイズを返す
+    fs::metadata(dest).map(|m| m.len())
+}
+
+#[cfg(not(target_os = "windows"))]
+fn platform_copy(src: &Path, dest: &Path) -> io::Result<u64> {
+    fs::copy(src, dest)
+}
+
 fn copy_and_verify(src: &Path, dest: &Path, expected_size: u64) -> io::Result<()> {
-    let copied = fs::copy(src, dest).map_err(|e| {
+    let copied = platform_copy(src, dest).map_err(|e| {
         let _ = fs::remove_file(dest);
         e
     })?;
