@@ -360,9 +360,9 @@ pub fn execute_ruleset(
         };
         // 初回・100ms経過・最終ファイルのいずれかで進捗通知する
         let now = Instant::now();
-        let should_emit = last_progress_emit
-            .map_or(true, |t| now.duration_since(t).as_millis() >= PROGRESS_THROTTLE_MS)
-            || i + 1 == total;
+        let should_emit = last_progress_emit.map_or(true, |t| {
+            now.duration_since(t).as_millis() >= PROGRESS_THROTTLE_MS
+        }) || i + 1 == total;
         if should_emit {
             on_progress(&pending.filename, i + 1, total, bps);
             last_progress_emit = Some(now);
@@ -491,9 +491,7 @@ pub fn undo_file_move(source_path: &Path, destination_path: &Path) -> Result<(),
         fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {}", e))?;
     }
 
-    let file_size = fs::metadata(destination_path)
-        .map(|m| m.len())
-        .unwrap_or(0);
+    let file_size = fs::metadata(destination_path).map(|m| m.len()).unwrap_or(0);
     move_file(destination_path, source_path, file_size).map_err(|e| classify_io_error(&e))
 }
 
