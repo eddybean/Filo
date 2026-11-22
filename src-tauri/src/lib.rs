@@ -1,3 +1,4 @@
+pub mod classify;
 pub mod commands;
 pub mod engine;
 pub mod filters;
@@ -22,6 +23,7 @@ pub fn run() {
             commands::export_rulesets,
             commands::open_in_explorer,
             commands::list_source_files,
+            commands::preview_auto_classify,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -271,6 +271,24 @@ pub fn list_source_files(dir: String) -> Result<Vec<String>, String> {
     Ok(files)
 }
 
+/// 自動判定プレビューの1行分
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct ClassifyPreview {
+    pub filename: String,
+    pub folder: Option<String>,
+    pub score: f64,
+    pub reason: Option<String>,
+}
+
+/// `destination_dir` 直下のサブフォルダを候補に、各ファイル名の判定結果を返す（ファイルは動かさない）。
+#[tauri::command]
+pub fn preview_auto_classify(
+    _destination_dir: String,
+    _filenames: Vec<String>,
+) -> Result<Vec<ClassifyPreview>, String> {
+    unimplemented!()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -306,6 +324,57 @@ mod tests {
     #[test]
     fn test_list_source_files_nonexistent_dir() {
         let result = list_source_files("/nonexistent/path/12345".to_string());
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_preview_auto_classify_returns_folder_per_file() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::create_dir(dir.path().join("夏目漱石")).unwrap();
+        fs::create_dir(dir.path().join("芥川龍之介")).unwrap();
+
+        let result = preview_auto_classify(
+            dir.path().to_str().unwrap().to_string(),
+            vec![
+                "[夏目漱石] こころ.txt".to_string(),
+                "random_notes.txt".to_string(),
+            ],
+        )
+        .unwrap();
+
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].filename, "[夏目漱石] こころ.txt");
+        assert_eq!(result[0].folder.as_deref(), Some("夏目漱石"));
+        assert!(result[0].reason.is_none());
+        assert_eq!(result[1].folder, None);
+        assert_eq!(
+            result[1].reason.as_deref(),
+            Some("Auto-classify: no matching folder")
+        );
+    }
+
+    #[test]
+    fn test_preview_auto_classify_no_subfolders() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = preview_auto_classify(
+            dir.path().to_str().unwrap().to_string(),
+            vec!["a.txt".to_string()],
+        )
+        .unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].folder, None);
+        assert_eq!(
+            result[0].reason.as_deref(),
+            Some("Auto-classify: destination has no subfolders")
+        );
+    }
+
+    #[test]
+    fn test_preview_auto_classify_nonexistent_dir() {
+        let result = preview_auto_classify(
+            "/nonexistent/path/12345".to_string(),
+            vec!["a.txt".to_string()],
+        );
         assert!(result.is_err());
     }
 }

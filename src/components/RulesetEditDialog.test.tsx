@@ -10,9 +10,10 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({
   confirm: vi.fn().mockResolvedValue(true),
 }));
 
-// RegexTesterPanel 内の listSourceFiles をモック化
+// RegexTesterPanel / AutoClassifyPreviewPanel 内のコマンドをモック化
 vi.mock("../lib/commands", () => ({
   listSourceFiles: vi.fn().mockResolvedValue([]),
+  previewAutoClassify: vi.fn().mockResolvedValue([]),
 }));
 
 function renderDialog(overrides?: { ruleset?: typeof defaultRuleset | null }) {
@@ -172,5 +173,62 @@ describe("RulesetEditDialog", () => {
       expect(screen.getByTestId("validation-errors")).toBeInTheDocument();
     });
     expect(screen.getByTestId("validation-errors")).toHaveTextContent("正規表現");
+  });
+
+  it("自動判定チェックボックスを有効にして保存すると auto_classify=true で onSave が呼ばれる", async () => {
+    const { onSave } = renderDialog();
+    await userEvent.type(screen.getByTestId("field-name"), "自動判定ルール");
+    await userEvent.type(screen.getByTestId("field-source-dir"), "C:\src");
+    await userEvent.type(screen.getByTestId("field-dest-dir"), "C:\dst");
+    await userEvent.type(screen.getByTestId("extension-input"), ".zip");
+    await userEvent.click(screen.getByTestId("btn-extension-add"));
+    await userEvent.click(screen.getByTestId("field-auto-classify"));
+
+    await userEvent.click(screen.getByTestId("btn-save"));
+
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledOnce();
+    });
+    expect(onSave.mock.calls[0][0].auto_classify).toBe(true);
+  });
+
+  it("新規作成時は auto_classify=false で保存される", async () => {
+    const { onSave } = renderDialog();
+    await userEvent.type(screen.getByTestId("field-name"), "通常ルール");
+    await userEvent.type(screen.getByTestId("field-source-dir"), "C:\src");
+    await userEvent.type(screen.getByTestId("field-dest-dir"), "C:\dst");
+    await userEvent.type(screen.getByTestId("extension-input"), ".zip");
+    await userEvent.click(screen.getByTestId("btn-extension-add"));
+
+    await userEvent.click(screen.getByTestId("btn-save"));
+
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledOnce();
+    });
+    expect(onSave.mock.calls[0][0].auto_classify).toBe(false);
+  });
+
+  it("自動判定とテンプレート変数を併用するとバリデーションエラーが表示される", async () => {
+    const { onSave } = renderDialog();
+    await userEvent.type(screen.getByTestId("field-name"), "テストルール");
+    await userEvent.type(screen.getByTestId("field-source-dir"), "C:\src");
+    await userEvent.type(screen.getByTestId("field-dest-dir"), "C:\dst\{{label}}");
+    await userEvent.click(screen.getByLabelText("正規表現"));
+    await userEvent.click(screen.getByTestId("field-auto-classify"));
+
+    await userEvent.click(screen.getByTestId("btn-save"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("validation-errors")).toBeInTheDocument();
+    });
+    expect(screen.getByTestId("validation-errors")).toHaveTextContent("自動判定");
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it("自動判定を有効にするとプレビューパネルが表示される", async () => {
+    renderDialog();
+    expect(screen.queryByTestId("auto-classify-preview-panel")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByTestId("field-auto-classify"));
+    expect(screen.getByTestId("auto-classify-preview-panel")).toBeInTheDocument();
   });
 });
