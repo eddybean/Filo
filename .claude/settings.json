@@ -35,9 +35,6 @@
     "ask": [
       "Bash(rm *)",
       "Bash(mv *)",
-      "Bash(curl *)",
-      "Bash(git add *)",
-      "Bash(git commit *)",
       "Bash(git push *)",
       "Bash(git merge *)",
       "Bash(npm install *)",
