@@ -1,6 +1,6 @@
 [package]
 name = "filo"
-version = "0.1.6"
+version = "0.1.7"
 description = "A file organizer based on user-defined rulesets"
 authors = ["you"]
 edition = "2021"
