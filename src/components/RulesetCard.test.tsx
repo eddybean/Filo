@@ -102,7 +102,9 @@ describe("RulesetCard", () => {
 
   it("auto_classify が有効なルールには自動判定バッジが表示される", () => {
     renderCard({ ruleset: autoClassifyRuleset });
-    expect(screen.getByTestId("ruleset-auto-classify-badge")).toHaveTextContent("自動判定");
+    expect(screen.getByTestId("ruleset-auto-classify-badge")).toHaveTextContent(
+      "自動判定",
+    );
   });
 
   it("auto_classify が無効なルールには自動判定バッジが表示されない", () => {

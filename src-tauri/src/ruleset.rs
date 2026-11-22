@@ -124,6 +124,12 @@ impl Ruleset {
                 "at least one filter is required".into(),
             ));
         }
+        // 自動判定はテンプレート変数と併用できない
+        if self.auto_classify && has_template_vars(&self.destination_dir) {
+            return Err(RulesetError::Validation(
+                "auto_classify cannot be used with template variables in destination_dir".into(),
+            ));
+        }
         // テンプレート変数がある場合は正規表現フィルタが必須
         if has_template_vars(&self.destination_dir) {
             let is_regex = self

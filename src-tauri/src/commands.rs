@@ -1,3 +1,4 @@
+use crate::classify::Classifier;
 use crate::engine::{self, ExecutionResult, UndoRequest};
 use crate::ruleset::{Ruleset, RulesetFile};
 use serde::Serialize;
@@ -283,10 +284,35 @@ pub struct ClassifyPreview {
 /// `destination_dir` 直下のサブフォルダを候補に、各ファイル名の判定結果を返す（ファイルは動かさない）。
 #[tauri::command]
 pub fn preview_auto_classify(
-    _destination_dir: String,
-    _filenames: Vec<String>,
+    destination_dir: String,
+    filenames: Vec<String>,
 ) -> Result<Vec<ClassifyPreview>, String> {
-    unimplemented!()
+    let path = Path::new(&destination_dir);
+    if !path.is_dir() {
+        return Err(format!("Directory not found: {}", destination_dir));
+    }
+    let folders = engine::list_subdirectories(path).map_err(|e| e.to_string())?;
+    let classifier = Classifier::new(&folders);
+    Ok(filenames
+        .into_iter()
+        .map(|filename| {
+            if classifier.is_empty() {
+                return ClassifyPreview {
+                    filename,
+                    folder: None,
+                    score: 0.0,
+                    reason: Some(engine::REASON_NO_SUBFOLDERS.to_string()),
+                };
+            }
+            let result = classifier.classify(&filename);
+            ClassifyPreview {
+                filename,
+                folder: result.folder,
+                score: result.score,
+                reason: result.reason,
+            }
+        })
+        .collect())
 }
 
 #[cfg(test)]

@@ -21,7 +21,8 @@
     "menu": "メニュー",
     "duplicate": "複製",
     "openSourceDir": "対象フォルダを開く",
-    "openDestinationDir": "保存先フォルダを開く"
+    "openDestinationDir": "保存先フォルダを開く",
+    "autoClassifyBadge": "自動判定"
   },
   "editor": {
     "title": "ルールセット編集",
@@ -49,6 +50,17 @@
     "save": "保存",
     "cancel": "キャンセル",
     "destinationTemplateHint": "正規表現の (?P<name>...) グループを {name} の形式で保存先パスに使用できます（例: C:/sorted/{label}/{author}）",
+    "autoClassify": "自動判定（保存先のサブフォルダから選ぶ）",
+    "autoClassifyHint": "保存先フォルダ直下のサブフォルダ名とファイル名を照合し、最も合致するフォルダへ振り分けます。該当なしや判定が拮抗したファイルはスキップされます。",
+    "autoClassifyPreview": {
+      "loadFiles": "ソースフォルダのファイルで判定を確認",
+      "loadError": "読み込みエラー: {{message}}",
+      "matchCount": "{{matched}} / {{total}} 件判定",
+      "noMatch": "該当フォルダなし",
+      "ambiguous": "候補が拮抗: {{a}} / {{b}}",
+      "noSubfolders": "保存先にサブフォルダがありません",
+      "empty": "対象のファイルがありません"
+    },
     "regexTester": {
       "sampleInput": "ファイル名でテスト",
       "samplePlaceholder": "例: IMG_20250101_001.jpg",
@@ -66,7 +78,8 @@
       "destinationDirRequired": "保存先フォルダを指定してください",
       "filterRequired": "フィルタ条件を1つ以上指定してください",
       "destinationTemplateRequiresRegex": "保存先パスにテンプレート変数を使う場合、ファイル名フィルタに正規表現を指定してください",
-      "invalidDatetime": "日時フィールドに無効な値が入力されています"
+      "invalidDatetime": "日時フィールドに無効な値が入力されています",
+      "autoClassifyWithTemplate": "自動判定と保存先パスのテンプレート変数は併用できません"
     }
   },
   "execution": {

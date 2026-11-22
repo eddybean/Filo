@@ -75,11 +75,7 @@ describe("AutoClassifyPreviewPanel", () => {
   });
 
   it("拡張子フィルタがあるとき一致するファイルだけを判定する", async () => {
-    vi.mocked(commands.listSourceFiles).mockResolvedValue([
-      "a.ZIP",
-      "b.txt",
-      "c.zip",
-    ]);
+    vi.mocked(commands.listSourceFiles).mockResolvedValue(["a.ZIP", "b.txt", "c.zip"]);
     vi.mocked(commands.previewAutoClassify).mockResolvedValue([]);
     renderPanel({ extensions: [".zip"] });
 
