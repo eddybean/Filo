@@ -1,5 +1,5 @@
 import { mockIPC } from "@tauri-apps/api/mocks";
-import type { Ruleset, ExecutionResult } from "../../lib/types";
+import type { Ruleset, ExecutionResult, ClassifyPreview } from "../../lib/types";
 import { defaultRuleset, defaultExecutionResult } from "./fixtures";
 
 export type IPCOverrides = {
@@ -14,6 +14,10 @@ export type IPCOverrides = {
   undo_all?: (args: unknown) => Array<{ Ok: null }>;
   import_rulesets?: (args: { path: string }) => Ruleset[];
   export_rulesets?: (args: { path: string }) => null;
+  preview_auto_classify?: (args: {
+    destinationDir: string;
+    filenames: string[];
+  }) => ClassifyPreview[];
 };
 
 export function setupTauriMocks(overrides?: IPCOverrides): void {
@@ -29,6 +33,7 @@ export function setupTauriMocks(overrides?: IPCOverrides): void {
     undo_all: () => [{ Ok: null }],
     import_rulesets: () => [defaultRuleset],
     export_rulesets: () => null,
+    preview_auto_classify: () => [],
     ...overrides,
   };
 

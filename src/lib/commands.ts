@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Ruleset, ExecutionResult, UndoRequest } from "./types";
+import type { Ruleset, ExecutionResult, UndoRequest, ClassifyPreview } from "./types";
 
 export async function getRulesets(): Promise<Ruleset[]> {
   return invoke<Ruleset[]>("get_rulesets");
@@ -53,4 +53,14 @@ export async function openInExplorer(path: string): Promise<void> {
 
 export async function listSourceFiles(dir: string): Promise<string[]> {
   return invoke<string[]>("list_source_files", { dir });
+}
+
+export async function previewAutoClassify(
+  destinationDir: string,
+  filenames: string[],
+): Promise<ClassifyPreview[]> {
+  return invoke<ClassifyPreview[]>("preview_auto_classify", {
+    destinationDir,
+    filenames,
+  });
 }

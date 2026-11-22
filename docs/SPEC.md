@@ -46,6 +46,7 @@ rulesets:
     destination_dir: "C:/Users/user/Pictures/sorted"
     action: "move"       # "move" | "copy"
     overwrite: false
+    auto_classify: false  # 省略時 false
     filters:
       extensions:
         - ".jpg"
@@ -75,6 +76,7 @@ rulesets:
 | `destination_dir` | string | Yes | 保存先フォルダのパス。`{変数名}` 形式のテンプレート変数を使用可能（後述）|
 | `action` | `"move"` \| `"copy"` | Yes | ファイル操作種別。デフォルト: `"move"` |
 | `overwrite` | bool | Yes | 移動先に同名ファイルが存在する場合に上書きするか |
+| `auto_classify` | bool | No | 自動判定。有効なとき `destination_dir` 直下のサブフォルダからファイル名に合うものを選んで振り分ける（後述）。省略時 `false`（既存 YAML と後方互換） |
 
 #### 動的移動先テンプレート
 
@@ -104,6 +106,46 @@ filters:
 | キャプチャ値に Windows パス不正文字（`/ \ : * ? " < > |`）が含まれる | `_` に置換してサニタイズ |
 | テンプレートが解決できた場合 | 解決されたパスのディレクトリを自動作成して移動/コピー |
 | テンプレートなしの従来ルールセット | 変更なし（後方互換） |
+
+#### 自動判定（`auto_classify`）
+
+`auto_classify: true` のルールでは、`destination_dir` 直下のサブフォルダ名とファイル名を照合し、最も合致するフォルダ `destination_dir/<フォルダ>/<ファイル名>` へ移動またはコピーする。モデルは使わず決定的な文字列マッチングで判定し、候補が数百件でも高速に動く。
+
+```yaml
+destination_dir: "D:/books"     # 直下に 夏目漱石/ 太宰治(新潮社)/ 芥川龍之介(新潮社)/ などがある
+auto_classify: true
+filters:
+  extensions: [".zip", ".txt"]
+```
+
+- `[夏目漱石] 吾輩は猫である.txt` → `D:/books/夏目漱石/`
+- `[太宰治(新潮社)] 人間失格 上巻.zip` → `D:/books/太宰治(新潮社)/`（隣に `芥川龍之介(新潮社)/` があっても誤らない）
+
+**アルゴリズム（`src-tauri/src/classify.rs`）：**
+
+1. 正規化: NFKC（全角/半角の統一）→ 小文字化 → カタカナをひらがなへ → 異体字の寄せ（鷗→鴎, 澤→沢, 髙→高, 﨑/嵜→崎, 邊/邉→辺, 齋/齊→斎, 濱→浜, 國→国, 廣→広, 櫻→桜, 實→実, 惠→恵, 德→徳）
+2. トークン化: 空白とカッコ・記号（`[]【】()「」『』〔〕{}<>《》_-・,、.+&~` など）で分割し、さらに ASCII 英字と非 ASCII 文字の境界でも分割する（数字は前後に付く。例: `python入門` → `python` / `入門`、`第1巻` はそのまま）。数字だけのトークンは捨てる。ファイル名は拡張子を除いて処理する。区切り文字をすべて除いた連結文字列を compact と呼ぶ
+3. 重み: フォルダトークン t の重みは `ln((N+1)/df(t))`（N = 候補フォルダ数、df = t を含むフォルダ数）。`新潮社` のように多くのフォルダに出る語は軽く、固有の語は重くなる
+4. フォルダごとのスコア（0〜1）は次の最大値
+   - S_sub = 1.0: フォルダの compact が非 ASCII 文字を含み、ファイルの compact の部分文字列である
+   - S_cov: フォルダトークンの重み付き被覆率。完全一致は重み×1、曖昧一致（Levenshtein 類似度 ≥ 0.8、両トークン3文字以上）は重み×類似度
+   - S_win: フォルダの compact と、ファイルの連続トークン（1〜フォルダトークン数+1 個）の連結との類似度が 0.75 以上（compact 4文字以上）なら 類似度×0.9。誤字の救済用
+5. 決定: スコア降順（同点は compact が長い方が上位）。1位のスコアが **0.5 以上**、かつ 1位との差が **0.15 未満**の競合候補がなければ採用する。ただし 1位が S_sub で、競合候補がすべて 1位の compact に含まれる短い名前なら、長い（より具体的な）1位を採用する（例: `太宰治` と `太宰治(新潮社)` → 後者）
+
+**ASCII だけのフォルダ名の扱い：** 部分文字列一致（S_sub）の対象外。`Go` が `Google_Drive.pdf` に一致するような誤爆を防ぐため、ASCII 名はトークン単位（`rust_book.pdf` → `Rust`）でのみ一致する。
+
+**制約・動作仕様：**
+
+| ケース | 動作 |
+|--------|------|
+| `destination_dir` にテンプレート変数がある | バリデーションエラー（併用不可） |
+| 保存先直下にサブフォルダが1つもない | 全ファイルを skipped（`Auto-classify: destination has no subfolders`） |
+| 合致するフォルダがない（1位 < 0.5） | skipped（`Auto-classify: no matching folder`） |
+| 1位と僅差（< 0.15）の候補がある | skipped（`Auto-classify: ambiguous between 'A' and 'B'`）。1位がしきい値未満でも僅差の候補があればこの理由になる |
+| `.` で始まるサブフォルダ | 候補にしない |
+| 上書き確認・移動/コピー・Undo・キャンセル | 通常のルールと同じ |
+
+しきい値は定数（`MIN_SCORE = 0.5`, `MIN_MARGIN = 0.15`）で、設定 UI はない。
 
 #### 並び順について
 
@@ -237,8 +279,9 @@ filters:
 | 拡張子入力 | タグ形式で複数追加・削除が可能 |
 | ファイル名パターン | glob または正規表現を選択してパターンを入力 |
 | 正規表現テスター | ファイル名パターンの方式を「正規表現」にしたとき、パターン入力欄の直下に表示されるインタラクティブなテスト UI（後述） |
+| 自動判定 | 保存先フォルダの下のチェックボックスで `auto_classify` を切替。有効なときは自動判定プレビューパネル（後述）を表示する |
 | 日時入力 | カレンダーピッカーまたは手動入力。各フィールド（開始・終了）に個別のクリアボタン（×）を配置し、1クリックで該当フィールドをクリアできる |
-| バリデーション | 保存時に以下を検証。エラーは画面下部の Toast 形式（4秒後自動消去）で表示する: (1) 必須フィールド（名前・対象フォルダ・保存先フォルダ）の未入力、(2) フィルタ条件が1つも指定されていない、(3) 保存先パスにテンプレート変数があるのに正規表現フィルタが未設定、(4) 日時フィールドに無効な値（不完全な入力）がある |
+| バリデーション | 保存時に以下を検証。エラーは画面下部の Toast 形式（4秒後自動消去）で表示する: (1) 必須フィールド（名前・対象フォルダ・保存先フォルダ）の未入力、(2) フィルタ条件が1つも指定されていない、(3) 保存先パスにテンプレート変数があるのに正規表現フィルタが未設定、(4) 日時フィールドに無効な値（不完全な入力）がある、(5) 自動判定と保存先パスのテンプレート変数を併用している |
 
 ### 3.3 正規表現テスターパネル（`RegexTesterPanel`）
 
@@ -279,6 +322,29 @@ filters:
 | マッチ数サマリー | 「N / M 件マッチ」の形式でマッチしたファイル数と総ファイル数を表示する |
 | ファイル一覧 | **マッチしたファイルのみ**を表示する。スクロール可能領域（最大高さ制限）に収める |
 | 保存先プレビュー | テンプレート変数が設定されている場合、各ファイルの解決後の保存先パスを「→ 保存先パス」形式で表示する |
+| 読み込みエラー | ディレクトリが存在しない等のエラー時は赤字でメッセージを表示する |
+
+### 3.3.1 自動判定プレビューパネル（`AutoClassifyPreviewPanel`）
+
+自動判定を有効にしたときのみ、チェックボックスの直下に表示する。誤判定を実行前に確認するためのパネル。
+
+```
+┌──────────────────────────────────────────────────────────┐
+│  保存先フォルダ直下のサブフォルダ名とファイル名を照合し…          │
+│  [ソースフォルダのファイルで判定を確認]                         │
+│  2 / 3 件判定                                              │
+│  ✓ [夏目漱石] こころ.txt → 夏目漱石/ (1.00)                  │
+│  ✓ [太宰治] 人間失格.zip → 太宰治(新潮社)/ (0.73)              │
+│  – random_notes.txt → 該当フォルダなし                        │
+└──────────────────────────────────────────────────────────┘
+```
+
+| 項目 | 仕様 |
+|------|------|
+| 確認ボタン | `list_source_files` で対象フォルダのファイルを取得し、`preview_auto_classify` で判定する。対象フォルダか保存先が未入力のときは無効 |
+| 拡張子フィルタ | 拡張子フィルタが設定されていれば、一致するファイルだけを判定する（大文字小文字を区別しない） |
+| 判定数サマリー | 「N / M 件判定」の形式で、フォルダが決まったファイル数と総数を表示する |
+| 結果一覧 | 全ファイルを表示する。判定できたものは「→ フォルダ名/ (スコア)」、できなかったものは理由（該当フォルダなし / 候補が拮抗: A / B / 保存先にサブフォルダがありません）を表示する |
 | 読み込みエラー | ディレクトリが存在しない等のエラー時は赤字でメッセージを表示する |
 
 #### 正規表現の Rust/JS 差異の吸収
@@ -462,6 +528,7 @@ Windows 11 の Fluent Design 2.0 を基調とし、現代的なトレンドを�
 
 1. source_dir の存在確認
 2. destination_dir の存在確認（存在しない場合は作成）
+   2a. auto_classify が有効なら、destination_dir 直下のサブフォルダを一度だけ列挙して判定器（Classifier）を作る
 3. source_dir 内のファイル一覧取得（サブフォルダは対象外、直下のみ）
 4. 各ファイルに対してフィルタ条件を適用し、対象ファイルをすべて事前収集（進捗バーの総件数を確定させるため）
    4a. extensions フィルタ
@@ -470,6 +537,7 @@ Windows 11 の Fluent Design 2.0 を基調とし、現代的なトレンドを�
    4d. modified_at フィルタ
    4e. すべてのフィルタがtrueの場合のみ対象
 5. 対象ファイルを destination_dir へ移動またはコピー（各ファイル処理後に進捗イベントを発火）
+   5-0. auto_classify が有効なら、判定したサブフォルダ（destination_dir/<フォルダ>）を移動先にする。判定できなければ理由を付けて skipped
    5a. overwrite=false かつ同名ファイル存在 → スキップ
    5b. overwrite=true かつ同名ファイル存在 → 上書き
    5c. 移動（Move）:
@@ -516,6 +584,7 @@ Windows 11 の Fluent Design 2.0 を基調とし、現代的なトレンドを�
 | `import_rulesets` | `path: string` | `Result<Ruleset[]>` | YAMLファイルからインポート |
 | `export_rulesets` | `path: string` | `Result<()>` | YAMLファイルへエクスポート |
 | `list_source_files` | `dir: string` | `Result<Vec<String>>` | 指定ディレクトリの直下にあるファイル名一覧を取得（サブディレクトリは除外、アルファベット順）。正規表現テスターパネルの「ソースフォルダのファイルで確認」機能で使用 |
+| `preview_auto_classify` | `destinationDir: string, filenames: string[]` | `Result<ClassifyPreview[]>` | `destinationDir` 直下のサブフォルダを候補に、各ファイル名の自動判定結果を返す（ファイルは動かさない）。ディレクトリが存在しなければエラー |
 
 > **注**: フォルダ選択ダイアログ (`select_folder`) はフロントエンドから `@tauri-apps/plugin-dialog` の `open()` を直接呼び出すため、Tauri コマンドとしては存在しない。
 
@@ -537,6 +606,8 @@ struct Ruleset {
     action: Action,           // Move | Copy
     overwrite: bool,
     filters: Filters,
+    #[serde(default)]
+    auto_classify: bool,      // 自動判定（省略時 false）
 }
 
 enum Action {
@@ -581,6 +652,13 @@ struct FileResult {
 struct UndoRequest {
     source_path: PathBuf,      // 元のパス（戻し先）
     destination_path: PathBuf, // 現在のパス（移動先にあるファイル）
+}
+
+struct ClassifyPreview {      // preview_auto_classify の戻り値
+    filename: String,
+    folder: Option<String>,   // 判定したサブフォルダ名。判定できなければ None
+    score: f64,               // 1位のスコア（0〜1）
+    reason: Option<String>,   // 判定できなかった理由
 }
 
 // Tauriイベントペイロード
@@ -636,6 +714,7 @@ filo/
 │   ├── src/
 │   │   ├── main.rs              # エントリポイント
 │   │   ├── commands.rs          # Tauri IPCコマンド
+│   │   ├── classify.rs          # 自動判定（フォルダ名マッチング）
 │   │   ├── ruleset.rs           # ルールセットの型定義・YAML処理
 │   │   ├── engine.rs            # ファイル操作エンジン
 │   │   └── filters.rs           # フィルタロジック
@@ -652,6 +731,8 @@ filo/
 │   │   ├── RulesetEditDialog.test.tsx # ↑ コンポーネントテスト
 │   │   ├── RegexTesterPanel.tsx  # 正規表現テスターパネル
 │   │   ├── RegexTesterPanel.test.tsx  # ↑ コンポーネントテスト
+│   │   ├── AutoClassifyPreviewPanel.tsx  # 自動判定プレビューパネル
+│   │   ├── AutoClassifyPreviewPanel.test.tsx  # ↑ コンポーネントテスト
 │   │   ├── ExecutionResultDialog.tsx  # 実行結果ダイアログ
 │   │   ├── LoadingOverlay.tsx    # 実行中ローディングオーバーレイ
 │   │   └── Toolbar.tsx           # ツールバー
@@ -690,8 +771,8 @@ filo/
 
 | レイヤー | フレームワーク | 対象 | 件数 |
 |---------|--------------|------|------|
-| Layer 1: Rust 単体テスト | Rust 標準テスト | `ruleset.rs`, `filters.rs`, `engine.rs`, `commands.rs` のロジック | 72件 |
-| Layer 2: Vitest コンポーネントテスト | Vitest + @testing-library/react | UI コンポーネント・Zustand ストア | 46件 |
+| Layer 1: Rust 単体テスト | Rust 標準テスト | `ruleset.rs`, `filters.rs`, `engine.rs`, `commands.rs`, `classify.rs` のロジック | 112件 |
+| Layer 2: Vitest コンポーネントテスト | Vitest + @testing-library/react | UI コンポーネント・Zustand ストア | 59件 |
 
 ### 7.2 テスト実行コマンド
 
@@ -718,7 +799,7 @@ npm run test:all
 | 「インポート」クリック → `onImport` が呼ばれる |
 | 「エクスポート」クリック → `onExport` が呼ばれる |
 
-#### `src/components/RulesetCard.test.tsx`（10件）
+#### `src/components/RulesetCard.test.tsx`（12件）
 
 | テスト内容 |
 |-----------|
@@ -732,8 +813,10 @@ npm run test:all
 | 「…」クリック → サブメニューが表示される |
 | 「対象フォルダを開く」クリック → `openPath(source_dir)` が呼ばれる |
 | 「保存先フォルダを開く」クリック → `openPath(destination_dir)` が呼ばれる |
+| `auto_classify=true` のとき自動判定バッジが表示される |
+| `auto_classify=false` のとき自動判定バッジが表示されない |
 
-#### `src/components/RulesetEditDialog.test.tsx`（11件）
+#### `src/components/RulesetEditDialog.test.tsx`（15件）
 
 | テスト内容 |
 |-----------|
@@ -748,6 +831,10 @@ npm run test:all
 | 正規表現モードを選択すると正規表現テスターパネルが表示される |
 | glob モードのときは正規表現テスターパネルが表示されない |
 | 保存先にテンプレート変数あり + 正規表現以外のフィルタで保存 → バリデーションエラーが表示される |
+| 自動判定チェックボックスを有効にして保存 → `auto_classify=true` で `onSave` が呼ばれる |
+| 新規作成時は `auto_classify=false` で保存される |
+| 自動判定とテンプレート変数を併用 → バリデーションエラーが表示される |
+| 自動判定を有効にするとプレビューパネルが表示される |
 
 #### `src/components/RegexTesterPanel.test.tsx`（13件）
 
@@ -767,6 +854,17 @@ npm run test:all
 | ファイル一覧でマッチ数サマリーが表示される |
 | ソースフォルダの読み込みに失敗するとエラーが表示される |
 
+#### `src/components/AutoClassifyPreviewPanel.test.tsx`（6件）
+
+| テスト内容 |
+|-----------|
+| ヒントが表示される |
+| 対象フォルダか保存先が未指定のとき確認ボタンが無効になる |
+| 確認ボタンを押すと判定結果が一覧表示される（判定数サマリー・該当なしの理由を含む） |
+| 拡張子フィルタがあるとき一致するファイルだけを判定する |
+| 判定が拮抗したとき理由が表示される |
+| 読み込みに失敗するとエラーが表示される |
+
 #### `src/store/rulesetStore.test.ts`（5件）
 
 | テスト内容 |
@@ -777,7 +875,7 @@ npm run test:all
 | IPC 失敗時 → `error` フィールドに設定される |
 | `executeRuleset` → `execute_ruleset` IPC が呼ばれる |
 
-#### `src/lib/types.test.ts`（2件）
+#### `src/lib/types.test.ts`（3件）
 
 | テスト内容 |
 |-----------|
@@ -794,6 +892,7 @@ npm run test:all
 | `defaultRuleset` | 基本的なルールセット（action: move, extensions: .jpg/.png） |
 | `copyRuleset` | action: copy のルールセット（Undo 非表示テスト用） |
 | `disabledRuleset` | enabled: false のルールセット |
+| `autoClassifyRuleset` | auto_classify: true のルールセット |
 | `defaultExecutionResult` | 成功1件の ExecutionResult |
 
 #### `src/test/mocks/tauri.ts`
@@ -824,8 +923,9 @@ renderWithProviders(ui: React.ReactElement): RenderResult
 | コンポーネント | 主な `data-testid` |
 |-------------|------------------|
 | `Toolbar` | `toolbar`, `toolbar-create`, `toolbar-execute-all`, `toolbar-import`, `toolbar-export` |
-| `RulesetCard` | `ruleset-card`, `ruleset-toggle`, `ruleset-name`, `ruleset-execute`, `ruleset-edit`, `ruleset-delete`, `ruleset-menu`, `ruleset-menu-dropdown`, `ruleset-duplicate`, `ruleset-open-source`, `ruleset-open-destination` |
-| `RulesetEditDialog` | `edit-dialog`, `field-name`, `field-source-dir`, `field-dest-dir`, `btn-save`, `btn-cancel`, `extension-input`, `btn-extension-add`, `validation-errors` |
+| `RulesetCard` | `ruleset-card`, `ruleset-toggle`, `ruleset-name`, `ruleset-execute`, `ruleset-edit`, `ruleset-delete`, `ruleset-menu`, `ruleset-menu-dropdown`, `ruleset-duplicate`, `ruleset-open-source`, `ruleset-open-destination`, `ruleset-auto-classify-badge` |
+| `RulesetEditDialog` | `edit-dialog`, `field-name`, `field-source-dir`, `field-dest-dir`, `btn-save`, `btn-cancel`, `extension-input`, `btn-extension-add`, `field-auto-classify`, `validation-errors` |
+| `AutoClassifyPreviewPanel` | `auto-classify-preview-panel`, `auto-classify-load-btn`, `auto-classify-load-error`, `auto-classify-result-list`, `auto-classify-match-count`, `auto-classify-row` |
 | `RegexTesterPanel` | `regex-tester-panel`, `regex-sample-input`, `regex-syntax-error`, `regex-match-result`, `regex-capture-groups`, `regex-resolved-path`, `regex-load-files-btn`, `regex-file-list`, `regex-match-count` |
 | `ExecutionResultDialog` | `result-dialog`, `btn-result-close`, `btn-undo-all` |
 | `LoadingOverlay` | `loading-overlay`, `btn-cancel-execution` |

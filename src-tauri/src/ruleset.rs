@@ -46,6 +46,9 @@ pub struct Ruleset {
     pub action: Action,
     pub overwrite: bool,
     pub filters: Filters,
+    /// 有効なとき、destination_dir 直下のサブフォルダからファイル名に合うものを自動で選ぶ
+    #[serde(default)]
+    pub auto_classify: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -119,6 +122,12 @@ impl Ruleset {
         if !self.filters.has_at_least_one() {
             return Err(RulesetError::Validation(
                 "at least one filter is required".into(),
+            ));
+        }
+        // 自動判定はテンプレート変数と併用できない
+        if self.auto_classify && has_template_vars(&self.destination_dir) {
+            return Err(RulesetError::Validation(
+                "auto_classify cannot be used with template variables in destination_dir".into(),
             ));
         }
         // テンプレート変数がある場合は正規表現フィルタが必須
@@ -203,6 +212,7 @@ mod tests {
                 created_at: None,
                 modified_at: None,
             },
+            auto_classify: false,
         }
     }
 
@@ -410,5 +420,68 @@ rulesets:
         // テンプレートなしの従来ルールセットは変更なし
         let rs = sample_ruleset();
         assert!(rs.validate().is_ok());
+    }
+
+    // --- 自動判定のテスト ---
+
+    #[test]
+    fn test_auto_classify_defaults_to_false_when_omitted() {
+        let yaml = r#"
+version: 1
+rulesets:
+  - id: "test-id"
+    name: "old"
+    enabled: true
+    source_dir: "/src"
+    destination_dir: "/dst"
+    action: move
+    overwrite: false
+    filters:
+      extensions:
+        - ".zip"
+"#;
+        let file = RulesetFile::from_yaml(yaml).unwrap();
+        assert!(!file.rulesets[0].auto_classify);
+    }
+
+    #[test]
+    fn test_auto_classify_true_is_parsed() {
+        let yaml = r#"
+version: 1
+rulesets:
+  - id: "test-id"
+    name: "auto"
+    enabled: true
+    source_dir: "/src"
+    destination_dir: "/dst"
+    action: move
+    overwrite: false
+    auto_classify: true
+    filters:
+      extensions:
+        - ".zip"
+"#;
+        let file = RulesetFile::from_yaml(yaml).unwrap();
+        assert!(file.rulesets[0].auto_classify);
+    }
+
+    #[test]
+    fn test_validate_auto_classify_ok() {
+        let mut rs = sample_ruleset();
+        rs.auto_classify = true;
+        assert!(rs.validate().is_ok());
+    }
+
+    #[test]
+    fn test_validate_auto_classify_with_template_fails() {
+        let mut rs = sample_ruleset();
+        rs.auto_classify = true;
+        rs.destination_dir = "D:/sorted/{label}".to_string();
+        rs.filters.filename = Some(FilenameFilter {
+            pattern: r"^\((?P<label>[^)]+)\) .+".to_string(),
+            match_type: MatchType::Regex,
+        });
+        let err = rs.validate().unwrap_err().to_string();
+        assert!(err.contains("auto_classify"), "err = {}", err);
     }
 }

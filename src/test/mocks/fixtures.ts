@@ -14,6 +14,7 @@ export const defaultRuleset: Ruleset = {
     created_at: null,
     modified_at: null,
   },
+  auto_classify: false,
 };
 
 export const copyRuleset: Ruleset = {
@@ -28,6 +29,13 @@ export const disabledRuleset: Ruleset = {
   id: "test-uuid-3",
   name: "無効ルールセット",
   enabled: false,
+};
+
+export const autoClassifyRuleset: Ruleset = {
+  ...defaultRuleset,
+  id: "test-uuid-4",
+  name: "自動判定ルール",
+  auto_classify: true,
 };
 
 export const defaultExecutionResult: ExecutionResult = {

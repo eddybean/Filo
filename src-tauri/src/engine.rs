@@ -1,3 +1,4 @@
+use crate::classify::Classifier;
 use crate::filters::{extract_named_captures, matches_filters};
 use crate::ruleset::{Action, Ruleset};
 use serde::{Deserialize, Serialize};
@@ -10,6 +11,9 @@ use std::sync::OnceLock;
 use std::time::Instant;
 
 static TEMPLATE_VAR_RE: OnceLock<regex::Regex> = OnceLock::new();
+
+/// 自動判定で保存先にサブフォルダが1つもないときの skipped 理由
+pub const REASON_NO_SUBFOLDERS: &str = "Auto-classify: destination has no subfolders";
 
 fn get_template_var_re() -> &'static regex::Regex {
     TEMPLATE_VAR_RE
@@ -251,7 +255,8 @@ pub fn execute_ruleset(
 
     // テンプレート変数がない場合のみ事前に destination_dir を作成する。
     // テンプレートがある場合はファイルごとに解決して作成する。
-    let use_template = has_template_vars(&ruleset.destination_dir);
+    // 自動判定はテンプレート変数と併用しない（validate で弾く）。万一併用されていても自動判定を優先する。
+    let use_template = !ruleset.auto_classify && has_template_vars(&ruleset.destination_dir);
     if !use_template {
         if let Err(e) = fs::create_dir_all(&destination_dir) {
             return ExecutionResult {
@@ -270,6 +275,31 @@ pub fn execute_ruleset(
             };
         }
     }
+
+    // 自動判定: destination_dir 直下のサブフォルダを一度だけ列挙して判定器を作る
+    let classifier: Option<Classifier> = if ruleset.auto_classify {
+        match list_subdirectories(&destination_dir) {
+            Ok(folders) => Some(Classifier::new(&folders)),
+            Err(e) => {
+                return ExecutionResult {
+                    ruleset_id: ruleset.id.clone(),
+                    ruleset_name: ruleset.name.clone(),
+                    action: ruleset.action.clone(),
+                    status: ExecutionStatus::Failed,
+                    succeeded,
+                    skipped,
+                    errors: vec![FileResult {
+                        filename: String::new(),
+                        source_path: destination_dir,
+                        destination_path: None,
+                        reason: Some(format!("Failed to read destination directory: {}", e)),
+                    }],
+                };
+            }
+        }
+    } else {
+        None
+    };
 
     // List files in source directory (non-recursive)
     let entries = match fs::read_dir(&source_dir) {
@@ -371,7 +401,27 @@ pub fn execute_ruleset(
         // ラベル付きブロックで早期脱出しても、末尾のキャンセルチェックに必ず到達する
         'process: {
             // テンプレート変数がある場合はファイル名からキャプチャを取得して解決する
-            let resolved_dir = if use_template {
+            let resolved_dir = if let Some(clf) = classifier.as_ref() {
+                // 自動判定: 保存先直下のサブフォルダから選ぶ
+                let outcome = if clf.is_empty() {
+                    Err(Some(REASON_NO_SUBFOLDERS.to_string()))
+                } else {
+                    let result = clf.classify(&pending.filename);
+                    result.folder.ok_or(result.reason)
+                };
+                match outcome {
+                    Ok(folder) => destination_dir.join(folder),
+                    Err(reason) => {
+                        skipped.push(FileResult {
+                            filename: pending.filename.clone(),
+                            source_path: pending.path.clone(),
+                            destination_path: None,
+                            reason,
+                        });
+                        break 'process;
+                    }
+                }
+            } else if use_template {
                 let caps = if let Some(re) = filename_regex.as_ref() {
                     extract_named_captures(&pending.filename, re)
                 } else {
@@ -475,6 +525,18 @@ pub fn execute_ruleset(
     }
 }
 
+/// `dir` 直下のサブフォルダ名を名前順に返す。`.` で始まるフォルダは除く。
+pub fn list_subdirectories(dir: &Path) -> io::Result<Vec<String>> {
+    let mut names: Vec<String> = fs::read_dir(dir)?
+        .flatten()
+        .filter(|entry| entry.path().is_dir())
+        .filter_map(|entry| entry.file_name().to_str().map(|s| s.to_string()))
+        .filter(|name| !name.starts_with('.'))
+        .collect();
+    names.sort();
+    Ok(names)
+}
+
 pub fn undo_file_move(source_path: &Path, destination_path: &Path) -> Result<(), String> {
     // destination_path is where the file currently is (moved to)
     // source_path is where it should go back to (original location)
@@ -519,6 +581,7 @@ mod tests {
                 created_at: None,
                 modified_at: None,
             },
+            auto_classify: false,
         }
     }
 
@@ -1016,6 +1079,7 @@ mod tests {
                 created_at: None,
                 modified_at: None,
             },
+            auto_classify: false,
         };
 
         let result = execute_ruleset(&ruleset, |_, _, _, _| {}, &no_cancel());
@@ -1065,6 +1129,7 @@ mod tests {
                 created_at: None,
                 modified_at: None,
             },
+            auto_classify: false,
         };
 
         let result = execute_ruleset(&ruleset, |_, _, _, _| {}, &no_cancel());
@@ -1114,5 +1179,156 @@ mod tests {
             .as_deref()
             .unwrap_or("")
             .contains("Cancelled")));
+    }
+
+    // --- 自動判定のテスト ---
+
+    fn create_auto_ruleset(source: &Path, dest: &Path) -> Ruleset {
+        let mut rs = create_test_ruleset(source, dest);
+        rs.auto_classify = true;
+        rs
+    }
+
+    #[test]
+    fn test_list_subdirectories_sorted_and_excludes_hidden_and_files() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::create_dir(dir.path().join("夏目漱石")).unwrap();
+        fs::create_dir(dir.path().join("Alpha")).unwrap();
+        fs::create_dir(dir.path().join(".hidden")).unwrap();
+        fs::write(dir.path().join("file.txt"), "").unwrap();
+
+        let result = list_subdirectories(dir.path()).unwrap();
+        assert_eq!(result, vec!["Alpha".to_string(), "夏目漱石".to_string()]);
+    }
+
+    #[test]
+    fn test_auto_classify_moves_to_matching_subfolder() {
+        let src = tempfile::tempdir().unwrap();
+        let dst = tempfile::tempdir().unwrap();
+        fs::create_dir(dst.path().join("夏目漱石")).unwrap();
+        fs::create_dir(dst.path().join("芥川龍之介")).unwrap();
+        fs::write(src.path().join("[夏目漱石] 吾輩は猫である.txt"), "neko").unwrap();
+
+        let ruleset = create_auto_ruleset(src.path(), dst.path());
+        let result = execute_ruleset(&ruleset, |_, _, _, _| {}, &no_cancel());
+
+        assert_eq!(result.status, ExecutionStatus::Completed);
+        assert_eq!(result.succeeded.len(), 1);
+        let expected = dst
+            .path()
+            .join("夏目漱石")
+            .join("[夏目漱石] 吾輩は猫である.txt");
+        assert_eq!(
+            result.succeeded[0].destination_path.as_deref(),
+            Some(expected.as_path())
+        );
+        assert!(expected.exists());
+        assert!(!src.path().join("[夏目漱石] 吾輩は猫である.txt").exists());
+    }
+
+    #[test]
+    fn test_auto_classify_no_match_is_skipped() {
+        let src = tempfile::tempdir().unwrap();
+        let dst = tempfile::tempdir().unwrap();
+        fs::create_dir(dst.path().join("夏目漱石")).unwrap();
+        fs::write(src.path().join("random_notes.txt"), "x").unwrap();
+
+        let ruleset = create_auto_ruleset(src.path(), dst.path());
+        let result = execute_ruleset(&ruleset, |_, _, _, _| {}, &no_cancel());
+
+        assert_eq!(result.succeeded.len(), 0);
+        assert_eq!(result.skipped.len(), 1);
+        assert_eq!(
+            result.skipped[0].reason.as_deref(),
+            Some("Auto-classify: no matching folder")
+        );
+        assert!(src.path().join("random_notes.txt").exists());
+    }
+
+    #[test]
+    fn test_auto_classify_no_subfolders_skips_all() {
+        let src = tempfile::tempdir().unwrap();
+        let dst = tempfile::tempdir().unwrap();
+        fs::write(src.path().join("[夏目漱石] こころ.txt"), "x").unwrap();
+        fs::write(src.path().join("other.txt"), "y").unwrap();
+
+        let ruleset = create_auto_ruleset(src.path(), dst.path());
+        let result = execute_ruleset(&ruleset, |_, _, _, _| {}, &no_cancel());
+
+        assert_eq!(result.succeeded.len(), 0);
+        assert_eq!(result.skipped.len(), 2);
+        assert!(result
+            .skipped
+            .iter()
+            .all(|f| f.reason.as_deref() == Some("Auto-classify: destination has no subfolders")));
+        assert!(src.path().join("other.txt").exists());
+    }
+
+    #[test]
+    fn test_auto_classify_copy() {
+        let src = tempfile::tempdir().unwrap();
+        let dst = tempfile::tempdir().unwrap();
+        fs::create_dir(dst.path().join("夏目漱石")).unwrap();
+        fs::write(src.path().join("[夏目漱石] こころ.txt"), "kokoro").unwrap();
+
+        let mut ruleset = create_auto_ruleset(src.path(), dst.path());
+        ruleset.action = Action::Copy;
+        let result = execute_ruleset(&ruleset, |_, _, _, _| {}, &no_cancel());
+
+        assert_eq!(result.succeeded.len(), 1);
+        assert!(src.path().join("[夏目漱石] こころ.txt").exists());
+        assert_eq!(
+            fs::read_to_string(dst.path().join("夏目漱石").join("[夏目漱石] こころ.txt")).unwrap(),
+            "kokoro"
+        );
+    }
+
+    #[test]
+    fn test_auto_classify_existing_file_skipped_without_overwrite() {
+        let src = tempfile::tempdir().unwrap();
+        let dst = tempfile::tempdir().unwrap();
+        fs::create_dir(dst.path().join("夏目漱石")).unwrap();
+        fs::write(src.path().join("[夏目漱石] こころ.txt"), "new").unwrap();
+        fs::write(
+            dst.path().join("夏目漱石").join("[夏目漱石] こころ.txt"),
+            "old",
+        )
+        .unwrap();
+
+        let ruleset = create_auto_ruleset(src.path(), dst.path());
+        let result = execute_ruleset(&ruleset, |_, _, _, _| {}, &no_cancel());
+
+        assert_eq!(result.succeeded.len(), 0);
+        assert_eq!(result.skipped.len(), 1);
+        assert_eq!(
+            result.skipped[0].reason.as_deref(),
+            Some("File with same name exists at destination")
+        );
+        assert_eq!(
+            fs::read_to_string(dst.path().join("夏目漱石").join("[夏目漱石] こころ.txt")).unwrap(),
+            "old"
+        );
+    }
+
+    #[test]
+    fn test_auto_classify_undo_restores_file() {
+        let src = tempfile::tempdir().unwrap();
+        let dst = tempfile::tempdir().unwrap();
+        fs::create_dir(dst.path().join("夏目漱石")).unwrap();
+        fs::write(src.path().join("[夏目漱石] こころ.txt"), "kokoro").unwrap();
+
+        let ruleset = create_auto_ruleset(src.path(), dst.path());
+        let result = execute_ruleset(&ruleset, |_, _, _, _| {}, &no_cancel());
+        assert_eq!(result.succeeded.len(), 1);
+
+        let moved = &result.succeeded[0];
+        undo_file_move(&moved.source_path, moved.destination_path.as_ref().unwrap()).unwrap();
+
+        assert!(src.path().join("[夏目漱石] こころ.txt").exists());
+        assert!(!dst
+            .path()
+            .join("夏目漱石")
+            .join("[夏目漱石] こころ.txt")
+            .exists());
     }
 }

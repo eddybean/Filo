@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { confirm } from "@tauri-apps/plugin-dialog";
 import type { Ruleset, Action, MatchType, Filters } from "../lib/types";
 import { RegexTesterPanel } from "./RegexTesterPanel";
+import { AutoClassifyPreviewPanel } from "./AutoClassifyPreviewPanel";
 import { Toast } from "./Toast";
 
 /** RFC3339文字列 → datetime-local入力用文字列 ("YYYY-MM-DDTHH:mm") */
@@ -54,6 +55,7 @@ function emptyRuleset(): Ruleset {
       created_at: null,
       modified_at: null,
     },
+    auto_classify: false,
   };
 }
 
@@ -68,6 +70,7 @@ function toFormRuleset(ruleset: Ruleset): Ruleset {
   };
   return {
     ...ruleset,
+    auto_classify: ruleset.auto_classify ?? false,
     filters: {
       ...ruleset.filters,
       created_at: convertRange(ruleset.filters.created_at),
@@ -144,6 +147,10 @@ export function RulesetEditDialog({
       form.filters.filename?.match_type !== "regex"
     ) {
       errs.push(t("editor.validation.destinationTemplateRequiresRegex"));
+    }
+
+    if (form.auto_classify && hasTemplateVars(form.destination_dir)) {
+      errs.push(t("editor.validation.autoClassifyWithTemplate"));
     }
 
     const dtKeys: Array<[string, string]> = [
@@ -318,6 +325,23 @@ export function RulesetEditDialog({
                 <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
                   {t("editor.destinationTemplateHint")}
                 </p>
+              )}
+              <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 mt-2 cursor-pointer">
+                <input
+                  data-testid="field-auto-classify"
+                  type="checkbox"
+                  checked={form.auto_classify}
+                  onChange={(e) => updateField("auto_classify", e.target.checked)}
+                  className="accent-blue-600 dark:accent-blue-400"
+                />
+                {t("editor.autoClassify")}
+              </label>
+              {form.auto_classify && (
+                <AutoClassifyPreviewPanel
+                  sourceDir={form.source_dir}
+                  destinationDir={form.destination_dir}
+                  extensions={form.filters.extensions}
+                />
               )}
             </div>
 

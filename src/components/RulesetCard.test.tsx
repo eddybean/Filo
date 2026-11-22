@@ -3,7 +3,12 @@ import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { RulesetCard } from "./RulesetCard";
 import { renderWithProviders } from "../test/helpers/renderWithProviders";
-import { defaultRuleset, copyRuleset, disabledRuleset } from "../test/mocks/fixtures";
+import {
+  defaultRuleset,
+  copyRuleset,
+  disabledRuleset,
+  autoClassifyRuleset,
+} from "../test/mocks/fixtures";
 
 vi.mock("../lib/commands", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../lib/commands")>();
@@ -93,5 +98,17 @@ describe("RulesetCard", () => {
     await userEvent.click(screen.getByTestId("ruleset-menu"));
     await userEvent.click(screen.getByTestId("ruleset-open-destination"));
     expect(openInExplorer).toHaveBeenCalledWith(defaultRuleset.destination_dir);
+  });
+
+  it("auto_classify が有効なルールには自動判定バッジが表示される", () => {
+    renderCard({ ruleset: autoClassifyRuleset });
+    expect(screen.getByTestId("ruleset-auto-classify-badge")).toHaveTextContent(
+      "自動判定",
+    );
+  });
+
+  it("auto_classify が無効なルールには自動判定バッジが表示されない", () => {
+    renderCard();
+    expect(screen.queryByTestId("ruleset-auto-classify-badge")).not.toBeInTheDocument();
   });
 });

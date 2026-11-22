@@ -28,6 +28,16 @@ export interface Ruleset {
   action: Action;
   overwrite: boolean;
   filters: Filters;
+  /** 有効なとき、保存先直下のサブフォルダからファイル名に合うものを自動で選ぶ */
+  auto_classify: boolean;
+}
+
+/** 自動判定プレビューの1行分 */
+export interface ClassifyPreview {
+  filename: string;
+  folder: string | null;
+  score: number;
+  reason: string | null;
 }
 
 export type ExecutionStatus = "Completed" | "PartialFailure" | "Failed";

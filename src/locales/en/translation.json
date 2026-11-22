@@ -21,7 +21,8 @@
     "menu": "Menu",
     "duplicate": "Duplicate",
     "openSourceDir": "Open source folder",
-    "openDestinationDir": "Open destination folder"
+    "openDestinationDir": "Open destination folder",
+    "autoClassifyBadge": "Auto"
   },
   "editor": {
     "title": "Edit Ruleset",
@@ -49,6 +50,17 @@
     "save": "Save",
     "cancel": "Cancel",
     "destinationTemplateHint": "You can use regex named groups (?P<name>...) as {name} in the destination path (e.g. C:/sorted/{label}/{author})",
+    "autoClassify": "Auto-classify (choose a subfolder of the destination)",
+    "autoClassifyHint": "Matches each filename against the names of subfolders directly under the destination folder and sorts it into the best match. Files with no match or an ambiguous match are skipped.",
+    "autoClassifyPreview": {
+      "loadFiles": "Preview with source folder files",
+      "loadError": "Load error: {{message}}",
+      "matchCount": "{{matched}} / {{total}} files classified",
+      "noMatch": "No matching folder",
+      "ambiguous": "Ambiguous: {{a}} / {{b}}",
+      "noSubfolders": "Destination has no subfolders",
+      "empty": "No files to preview"
+    },
     "regexTester": {
       "sampleInput": "Test with filename",
       "samplePlaceholder": "e.g. IMG_20250101_001.jpg",
@@ -66,7 +78,8 @@
       "destinationDirRequired": "Destination folder is required",
       "filterRequired": "At least one filter condition is required",
       "destinationTemplateRequiresRegex": "Template variables in destination path require a regex filename filter",
-      "invalidDatetime": "One or more date fields contain an invalid value"
+      "invalidDatetime": "One or more date fields contain an invalid value",
+      "autoClassifyWithTemplate": "Auto-classify cannot be used with template variables in the destination path"
     }
   },
   "execution": {

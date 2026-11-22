@@ -113,6 +113,14 @@ export function RulesetCard({
           >
             {actionLabel}
           </span>
+          {ruleset.auto_classify && (
+            <span
+              data-testid="ruleset-auto-classify-badge"
+              className="text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/40 dark:to-orange-900/30 text-amber-700 dark:text-amber-400 border border-amber-100 dark:border-amber-800/40"
+            >
+              {t("ruleset.autoClassifyBadge")}
+            </span>
+          )}
         </div>
         <div className="text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">
           {ruleset.source_dir}
